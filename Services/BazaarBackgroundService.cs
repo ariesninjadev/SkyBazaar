@@ -20,6 +20,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private IConfiguration config;
         private ILogger<BazaarBackgroundService> logger;
 
+        Prometheus.Counter consumeCounter = Prometheus.Metrics.CreateCounter("sky_bazaar_consume_counter", "How many message batches were consumed from kafka");
+
         public BazaarBackgroundService(
             IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<BazaarBackgroundService> logger)
         {
@@ -29,17 +31,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            var index = 0;
             await GetService().Create();
-
 
             var consumeTask = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config["KAFKA_HOST"], config["TOPICS:BAZAAR"], async bazaar =>
             {
+                consumeCounter.Inc();
                 BazaarService service = GetService();
-                foreach (var item in bazaar)
-                {
-
-                }
                 var session = await service.GetSession();
                 await Task.WhenAll(bazaar.Select(async (b) =>
                 {
@@ -55,6 +52,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }, stoppingToken, "sky-bazaar-test", 50);
 
             await Task.WhenAny(consumeTask);
+            logger.LogError("ended consumption");
         }
 
 

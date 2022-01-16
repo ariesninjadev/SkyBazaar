@@ -9,6 +9,7 @@ using Cassandra.Data.Linq;
 using Coflnet.Sky.SkyBazaar.Models;
 using Cassandra.Mapping;
 using Newtonsoft.Json;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -21,10 +22,15 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private static bool ranCreate;
         private IConfiguration config;
+        private ILogger<BazaarService> logger;
 
-        public BazaarService(IConfiguration config)
+        private Prometheus.Counter insertCount = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert", "How many inserts were made");
+        private Prometheus.Counter insertFailed = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert_failed", "How many inserts failed");
+
+        public BazaarService(IConfiguration config, ILogger<BazaarService> logger)
         {
             this.config = config;
+            this.logger = logger;
         }
 
         internal async Task NewPull(int i, BazaarPull bazaar)
@@ -184,11 +190,26 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     SellVolume = item.QuickStatus.SellVolume,
                 };
                 // await session.ExecuteAsync(new SimpleStatement("DROP table Flip;"));
-                return table.Insert(flip);
+                return flip;
             });
 
             Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.Now}");
-            await Task.WhenAll(inserts.Select(async i => await session.ExecuteAsync(i)));
+            await Task.WhenAll(inserts.Select(async status =>
+            {
+
+                for (int i = 0; i < 3; i++)
+                    try
+                    {
+                        insertCount.Inc();
+                        await session.ExecuteAsync(table.Insert(status));
+                        return;
+                    }
+                    catch (Exception e)
+                    {
+                        insertFailed.Inc();
+                        logger.LogError(e, $"storing { status.ProductId} { status.TimeStamp}");
+                    }
+            }));
             return;
 
             var loadedFlip = (await GetStatus("kevin", DateTime.Now - TimeSpan.FromMinutes(200), DateTime.Now + TimeSpan.FromSeconds(2))).First();
