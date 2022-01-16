@@ -155,10 +155,10 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return new Table<StorageQuickStatus>(session, new MappingConfiguration(), TABLE_NAME_SECONDS);
         }
 
-        public async Task AddEntry(BazaarPull pull)
+        public async Task AddEntry(BazaarPull pull, ISession session = null)
         {
-
-            var session = await GetSession();
+            if (session == null)
+                session = await GetSession();
 
             //session.CreateKeyspaceIfNotExists("bazaar_quickstatus");
             //session.ChangeKeyspace("bazaar_quickstatus");
@@ -202,7 +202,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         }
 
-        private async Task<ISession> GetSession(string keyspace = "bazaar_quickstatus")
+        public async Task<ISession> GetSession(string keyspace = "bazaar_quickstatus")
         {
             var cluster = Cluster.Builder()
                                 .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])

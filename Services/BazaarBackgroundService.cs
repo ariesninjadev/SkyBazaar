@@ -40,11 +40,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 {
 
                 }
+                var session = await service.GetSession();
                 await Task.WhenAll(bazaar.Select(async (b) =>
                 {
                     try
                     {
-                        await service.NewPull(index++, b);
+                        await service.AddEntry(b, session);
                     }
                     catch (System.Exception e)
                     {
