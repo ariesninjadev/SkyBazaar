@@ -32,8 +32,16 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
             await GetService().Create();
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                await Task.WhenAny(GetConsumeTask(stoppingToken));
+                logger.LogError("ended consumption");
+            }
+        }
 
-            var consumeTask = Coflnet.Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config["KAFKA_HOST"], config["TOPICS:BAZAAR"], async bazaar =>
+        private Task GetConsumeTask(CancellationToken stoppingToken)
+        {
+            return Coflnet.Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config["KAFKA_HOST"], config["TOPICS:BAZAAR"], async bazaar =>
             {
                 consumeCounter.Inc();
                 BazaarService service = GetService();
@@ -50,11 +58,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     }
                 }));
             }, stoppingToken, "sky-bazaar-test", 50);
-
-            await Task.WhenAny(consumeTask);
-            logger.LogError("ended consumption");
         }
-
 
         private BazaarService GetService()
         {
