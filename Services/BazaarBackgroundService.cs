@@ -58,6 +58,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         logger.LogError(e, "saving");
                     }
                 }));
+                await session.ShutdownAsync();
             }, stoppingToken, "sky-bazaar-test", 50);
         }
 
