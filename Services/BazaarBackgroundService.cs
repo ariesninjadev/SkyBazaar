@@ -46,6 +46,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 consumeCounter.Inc();
                 BazaarService service = GetService();
                 var session = await service.GetSession();
+                System.Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing");
                 await Task.WhenAll(bazaar.Select(async (b) =>
                 {
                     try

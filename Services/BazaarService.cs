@@ -168,7 +168,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
             //session.CreateKeyspaceIfNotExists("bazaar_quickstatus");
             //session.ChangeKeyspace("bazaar_quickstatus");
-            var mapper = new Mapper(session);
+            //var mapper = new Mapper(session);
             var table = GetSmalestTable(session);
             var inserts = pull.Products.Select(item =>
             {
@@ -189,7 +189,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     SellPrice = item.QuickStatus.SellPrice,
                     SellVolume = item.QuickStatus.SellVolume,
                 };
-                // await session.ExecuteAsync(new SimpleStatement("DROP table Flip;"));
                 return flip;
             });
 
