@@ -199,14 +199,15 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 for (int i = 0; i < 3; i++)
                     try
                     {
-                        insertCount.Inc();
                         await session.ExecuteAsync(table.Insert(status));
+                        insertCount.Inc();
                         return;
                     }
                     catch (Exception e)
                     {
                         insertFailed.Inc();
                         logger.LogError(e, $"storing { status.ProductId} { status.TimeStamp}");
+                        await Task.Delay(1500);
                     }
             }));
             return;
