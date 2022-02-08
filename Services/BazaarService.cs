@@ -24,8 +24,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private IConfiguration config;
         private ILogger<BazaarService> logger;
 
-        private Prometheus.Counter insertCount = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert", "How many inserts were made");
-        private Prometheus.Counter insertFailed = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert_failed", "How many inserts failed");
+        private static Prometheus.Counter insertCount = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert", "How many inserts were made");
+        private static Prometheus.Counter insertFailed = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert_failed", "How many inserts failed");
 
         public BazaarService(IConfiguration config, ILogger<BazaarService> logger)
         {
@@ -195,7 +195,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.Now}");
             await Task.WhenAll(inserts.Select(async status =>
             {
-
                 for (int i = 0; i < 3; i++)
                     try
                     {
