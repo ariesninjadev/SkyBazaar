@@ -44,7 +44,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return Coflnet.Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config["KAFKA_HOST"], config["TOPICS:BAZAAR"], async bazaar =>
             {
                 consumeCounter.Inc();
-                BazaarService service = GetService();
+                using var scope = scopeFactory.CreateScope();
+                BazaarService service = scope.ServiceProvider.GetRequiredService<BazaarService>();
                 using var session = await service.GetSession();
                 System.Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing");
                 await Task.WhenAll(bazaar.Select(async (b) =>
