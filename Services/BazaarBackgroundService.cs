@@ -60,6 +60,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     }
                 }));
                 await session.ShutdownAsync();
+                System.GC.Collect();
             }, stoppingToken, "sky-bazaar-test", 50);
         }
 
