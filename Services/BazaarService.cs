@@ -226,7 +226,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         {
             var cluster = Cluster.Builder()
                                 .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])
-                                .AddContactPoints(config["CASSANDRA:HOST"])
+                                .AddContactPoints(config["CASSANDRA:HOSTS"].Split(","))
                                 .Build();
             if (keyspace == null)
                 return await cluster.ConnectAsync();
