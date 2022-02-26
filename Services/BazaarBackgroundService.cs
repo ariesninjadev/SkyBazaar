@@ -57,11 +57,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     catch (System.Exception e)
                     {
                         logger.LogError(e, "saving");
+                        throw e;
                     }
                 }));
                 await session.ShutdownAsync();
                 await session.Cluster.ShutdownAsync();
-            }, stoppingToken, "sky-bazaar-test", 50);
+            }, stoppingToken, "sky-bazaar-test", 10);
         }
 
         private BazaarService GetService()

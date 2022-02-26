@@ -117,7 +117,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
             var session = await GetSession(null);
 
-            session.CreateKeyspaceIfNotExists("bazaar_quickstatus");
+            var replication = new Dictionary<string, string>()
+            {
+                {"class", config["CASSANDRA:REPLICATION_CLASS"]},
+                {"replication_factor", config["CASSANDRA:REPLICATION_FACTOR"]}
+            };
+            session.CreateKeyspaceIfNotExists("bazaar_quickstatus", replication);
             session.ChangeKeyspace("bazaar_quickstatus");
 
             // await session.ExecuteAsync(new SimpleStatement("DROP table Flip;"));
@@ -198,7 +203,9 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 for (int i = 0; i < 3; i++)
                     try
                     {
-                        await session.ExecuteAsync(table.Insert(status));
+                        var statement = table.Insert(status);
+                        statement.SetConsistencyLevel(ConsistencyLevel.Quorum);
+                        await session.ExecuteAsync(statement);
                         insertCount.Inc();
                         return;
                     }
