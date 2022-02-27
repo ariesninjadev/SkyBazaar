@@ -10,6 +10,7 @@ using Coflnet.Sky.SkyAuctionTracker.Controllers;
 using dev;
 using System.Linq;
 using System.Collections.Generic;
+using System;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -34,8 +35,16 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             await GetService().Create();
             while (!stoppingToken.IsCancellationRequested)
             {
-                await Task.WhenAny(GetConsumeTask(stoppingToken));
+                try
+                {
+                    await GetConsumeTask(stoppingToken);
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "consume & insert");
+                }
                 logger.LogError("ended consumption");
+
             }
         }
 
