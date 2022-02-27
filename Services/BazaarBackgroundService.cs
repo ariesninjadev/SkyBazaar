@@ -11,6 +11,7 @@ using dev;
 using System.Linq;
 using System.Collections.Generic;
 using System;
+using Cassandra;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -38,6 +39,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 try
                 {
                     await GetConsumeTask(stoppingToken);
+                }
+                catch(NoHostAvailableException e)
+                {
+                    logger.LogError(e,"");
+                    logger.LogError(Newtonsoft.Json.JsonConvert.SerializeObject(e.Errors));
                 }
                 catch (Exception e)
                 {
