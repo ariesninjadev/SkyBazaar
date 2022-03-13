@@ -291,16 +291,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             Table<StorageQuickStatus> tenseconds = GetSmalestTable(session);
             await tenseconds.CreateIfNotExistsAsync();
 
-            Console.WriteLine(JsonConvert.SerializeObject(session.Execute("describe tables;")));
-            var minuteCount = (long)session.Execute("Select count(*) from " + TABLE_NAME_MINUTES + " where ProductId = 'BOOSTER_COOKIE'").FirstOrDefault().FirstOrDefault();
-            if (minuteCount == 0)
-            {
-                session.Execute("drop table " + TABLE_NAME_MINUTES);
-                session.Execute("drop table " + TABLE_NAME_HOURLY);
-                session.Execute("drop table " + TABLE_NAME_DAILY);
-                Console.WriteLine("dropped tables because they were empty");
-            }
-
             var minutes = GetMinutesTable(session);
             await minutes.CreateIfNotExistsAsync();
             var hours = GetHoursTable(session);
@@ -388,6 +378,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         insertFailed.Inc();
                         logger.LogError(e, $"storing { status.ProductId} { status.TimeStamp}");
                         await Task.Delay(1500);
+                        if(i == 2)
+                            throw e;
                     }
             }));
             return;
