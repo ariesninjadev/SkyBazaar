@@ -119,7 +119,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var highestTime = session.Execute(maxSelect).FirstOrDefault()?.FirstOrDefault();
             Nullable<Int64> highestId = 1;
             int pullInstanceId = 1;
-            Console.WriteLine($"max timestamp is {highestTime} {highestTime.GetType().Name}");
+            Console.WriteLine($"max timestamp is {highestTime} {highestTime?.GetType()?.Name}");
             if (highestTime != null)
             {
                 var minTime = ((DateTimeOffset)highestTime).Subtract(TimeSpan.FromSeconds(1));
