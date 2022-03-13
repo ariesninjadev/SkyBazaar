@@ -162,7 +162,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         .Where(p => p.Id == id1 || p.Id == id2).ToListAsync();
                 if (pulls.Count == 0)
                 {
-                    Console.WriteLine("none retrieved from mariadb, exiting");
+                    throw new Exception("none retrieved from mariadb, exiting " + (pullInstanceId - 1));
                     return;
                 }
 
@@ -295,9 +295,9 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             session.CreateKeyspaceIfNotExists("bazaar_quickstatus", replication);
             session.ChangeKeyspace("bazaar_quickstatus");
 
-            session.Execute("drop table " + TABLE_NAME_HOURLY);
+            /*session.Execute("drop table " + TABLE_NAME_HOURLY);
             session.Execute("drop table " + TABLE_NAME_DAILY);
-            Console.WriteLine("dropped tables for migration");
+            Console.WriteLine("dropped tables for migration");*/
 
             // await session.ExecuteAsync(new SimpleStatement("DROP table Flip;"));
             Table<StorageQuickStatus> tenseconds = GetSmalestTable(session);
