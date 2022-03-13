@@ -163,6 +163,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         .Where(p => p.Id >= start && p.Id < end).AsNoTracking().ToListAsync();
                 if (pulls.Count == 0)
                 {
+                    if(pullInstanceId == 540526)
+                    {
+                        pullInstanceId = 540558;
+                        continue;
+                    }
                     throw new Exception("none retrieved from mariadb, exiting " + (pullInstanceId - 1));
                     return;
                 }
