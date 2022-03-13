@@ -115,7 +115,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var session = await GetSession();
             var table = GetSmalestTable(session);
             var sampleStatus = new StorageQuickStatus();
-            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-01-10'";
+            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-02-17'";
             var highestTime = session.Execute(maxSelect).FirstOrDefault()?.FirstOrDefault();
             Nullable<Int64> highestId = 1;
             int pullInstanceId = 1;
@@ -126,8 +126,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 var maxRetTime = ((DateTimeOffset)highestTime).Add(TimeSpan.FromSeconds(1));
                 var newest = await table.Where(t => t.ProductId == DEFAULT_ITEM_TAG && t.TimeStamp > minTime && t.TimeStamp < maxTime)
                             .FirstOrDefault().ExecuteAsync();
-                highestId = newest.ReferenceId;
-                if (newest != null && newest.ReferenceId == 0)
+                highestId = newest?.ReferenceId;
+                if (highestId == null)
                 {
                     // lost migrationid 
                     var time = ((DateTimeOffset)highestTime).DateTime;
@@ -153,13 +153,14 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             Console.WriteLine($"Pull instance ref id " + pullInstanceId);
             while (!noEntries && !stoppingToken.IsCancellationRequested)
             {
-                var id1 = pullInstanceId++;
-                var id2 = pullInstanceId++;
+                var start = pullInstanceId;
+                pullInstanceId += 4;
+                var end = pullInstanceId;
                 var pulls = await context.BazaarPull
                         .Include(p => p.Products).ThenInclude(p => p.SellSummary)
                         .Include(p => p.Products).ThenInclude(p => p.BuySummery)
                         .Include(p => p.Products).ThenInclude(p => p.QuickStatus)
-                        .Where(p => p.Id == id1 || p.Id == id2).ToListAsync();
+                        .Where(p => p.Id >= start && p.Id < end).AsNoTracking().ToListAsync();
                 if (pulls.Count == 0)
                 {
                     throw new Exception("none retrieved from mariadb, exiting " + (pullInstanceId - 1));
@@ -171,6 +172,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     if (pull.Timestamp >= new DateTime(2022, 2, 17, 16, 9, 38, DateTimeKind.Utc))
                     {
                         Console.WriteLine("whooooo migration done");
+                        noEntries = true;
+                        return;
                     }
                     await AddEntry(pull, session);
                 }
