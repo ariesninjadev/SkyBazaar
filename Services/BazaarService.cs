@@ -127,7 +127,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 var newest = await table.Where(t => t.ProductId == DEFAULT_ITEM_TAG && t.TimeStamp > minTime && t.TimeStamp < maxTime)
                             .FirstOrDefault().ExecuteAsync();
                 highestId = newest.ReferenceId;
-                if(newest != null && newest.ReferenceId == 0)
+                if (newest != null && newest.ReferenceId == 0)
                 {
                     // lost migrationid 
                     var time = ((DateTimeOffset)highestTime).DateTime;
@@ -140,8 +140,16 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }
             Console.WriteLine($"Starting migrating from " + highestId);
             var noEntries = false;
-            if(pullInstanceId <= 1)
-                pullInstanceId = context.BazaarPrices.Where(p => p.Id == highestId).Select(p => p.PullInstance.Id).FirstOrDefault();
+            if (pullInstanceId <= 1)
+                try
+                {
+                    pullInstanceId = context.BazaarPrices.Where(p => p.Id == highestId).Select(p => p.PullInstance.Id).FirstOrDefault();
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "failed to retrieve pullInstance Id starting from 1");
+                    pullInstanceId = 1;
+                }
             Console.WriteLine($"Pull instance ref id " + pullInstanceId);
             while (!noEntries && !stoppingToken.IsCancellationRequested)
             {
@@ -378,7 +386,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         insertFailed.Inc();
                         logger.LogError(e, $"storing { status.ProductId} { status.TimeStamp}");
                         await Task.Delay(1500);
-                        if(i == 2)
+                        if (i == 2)
                             throw e;
                     }
             }));
