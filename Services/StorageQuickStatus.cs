@@ -62,6 +62,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
             SellMovingWeek = status.SellMovingWeek;
             SellOrdersCount = status.SellOrdersCount;
             TimeStamp = status.TimeStamp;
+            ReferenceId = status.ReferenceId;
             SerialisedBuyOrders = status.SerialisedBuyOrders;
             SerialisedSellOrders = status.SerialisedSellOrders;
         }

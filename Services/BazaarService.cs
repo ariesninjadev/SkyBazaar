@@ -10,6 +10,10 @@ using Coflnet.Sky.SkyBazaar.Models;
 using Cassandra.Mapping;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
+using hypixel;
+using System.Linq.Expressions;
+using RestSharp;
+using Microsoft.EntityFrameworkCore;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -19,7 +23,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private const string TABLE_NAME_HOURLY = "QuickStatusHourly";
         private const string TABLE_NAME_MINUTES = "QuickStatusMin";
         private const string TABLE_NAME_SECONDS = "QuickStatusSeconds";
-
+        private const string DEFAULT_ITEM_TAG = "STOCK_OF_STONKS";
         private static bool ranCreate;
         private IConfiguration config;
         private ILogger<BazaarService> logger;
@@ -105,6 +109,164 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             //context.Update(lastPull);
         }
 
+        internal async Task MigrateFromMariadb(HypixelContext context, System.Threading.CancellationToken stoppingToken)
+        {
+            var maxTime = new DateTime(2022, 2, 1);
+            var session = await GetSession();
+            var table = GetSmalestTable(session);
+            var sampleStatus = new StorageQuickStatus();
+            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-01-10'";
+            var highestTime = session.Execute(maxSelect).FirstOrDefault()?.FirstOrDefault();
+            Nullable<Int64> highestId = 1;
+            int pullInstanceId = 1;
+            Console.WriteLine($"max timestamp is {highestTime} {highestTime.GetType().Name}");
+            if (highestTime != null)
+            {
+                var minTime = ((DateTimeOffset)highestTime).Subtract(TimeSpan.FromSeconds(1));
+                var maxRetTime = ((DateTimeOffset)highestTime).Add(TimeSpan.FromSeconds(1));
+                var newest = await table.Where(t => t.ProductId == DEFAULT_ITEM_TAG && t.TimeStamp > minTime && t.TimeStamp < maxTime)
+                            .FirstOrDefault().ExecuteAsync();
+                highestId = newest.ReferenceId;
+                if(newest != null && newest.ReferenceId == 0)
+                {
+                    // lost migrationid 
+                    var time = ((DateTimeOffset)highestTime).DateTime;
+                    var fromDb = await context.BazaarPull.Where(b => b.Timestamp > minTime && b.Timestamp < maxRetTime)
+                                    .FirstOrDefaultAsync();
+                    Console.WriteLine(JsonConvert.SerializeObject(fromDb));
+                    pullInstanceId = fromDb.Id;
+                }
+                Console.WriteLine(JsonConvert.SerializeObject(newest));
+            }
+            Console.WriteLine($"Starting migrating from " + highestId);
+            var noEntries = false;
+            if(pullInstanceId <= 1)
+                pullInstanceId = context.BazaarPrices.Where(p => p.Id == highestId).Select(p => p.PullInstance.Id).FirstOrDefault();
+            Console.WriteLine($"Pull instance ref id " + pullInstanceId);
+            while (!noEntries && !stoppingToken.IsCancellationRequested)
+            {
+                var id1 = pullInstanceId++;
+                var id2 = pullInstanceId++;
+                var pulls = await context.BazaarPull
+                        .Include(p => p.Products).ThenInclude(p => p.SellSummary)
+                        .Include(p => p.Products).ThenInclude(p => p.BuySummery)
+                        .Include(p => p.Products).ThenInclude(p => p.QuickStatus)
+                        .Where(p => p.Id == id1 || p.Id == id2).ToListAsync();
+                if (pulls.Count == 0)
+                {
+                    Console.WriteLine("none retrieved from mariadb, exiting");
+                    return;
+                }
+
+                foreach (var pull in pulls)
+                {
+                    if (pull.Timestamp >= new DateTime(2022, 2, 17, 16, 9, 38, DateTimeKind.Utc))
+                    {
+                        Console.WriteLine("whooooo migration done");
+                    }
+                    await AddEntry(pull, session);
+                }
+            }
+            Console.WriteLine(highestTime);
+        }
+
+        public async Task Aggregate(ISession session)
+        {
+            var minutes = GetMinutesTable(session);
+
+            // minute loop
+            var startDate = new DateTime(2022, 3, 1);
+            var length = TimeSpan.FromHours(6);
+            // stonks have always been on bazaar
+            var itemId = DEFAULT_ITEM_TAG;
+            var client = new RestClient("https://sky.coflnet.com");
+            var stringRes = await client.ExecuteAsync(new RestRequest("/api/items/bazaar/tags"));
+            var ids = JsonConvert.DeserializeObject<string[]>(stringRes.Content);
+            foreach (var item in ids)
+            {
+                itemId = item;
+                Console.WriteLine("doing: " + itemId);
+                await AggregateMinutesData(session, startDate, length, itemId, GetMinutesTable(session), CreateBlock, TimeSpan.FromMinutes(5));
+                await AggregateMinutesData(session, startDate, TimeSpan.FromDays(1), itemId, GetHoursTable(session), (a, b, c, d) =>
+                {
+                    return CreateBlockAggregated(a, b, c, d, GetMinutesTable(a));
+                }, TimeSpan.FromHours(2));
+                await AggregateMinutesData(session, startDate, TimeSpan.FromDays(2), itemId, GetDaysTable(session), (a, b, c, d) =>
+                {
+                    return CreateBlockAggregated(a, b, c, d, GetHoursTable(a));
+                }, TimeSpan.FromDays(1));
+
+                await Task.Delay(100000);
+            }
+
+            // hour loop
+
+            // day loop
+
+        }
+
+        private static async Task AggregateMinutesData(ISession session, DateTime startDate, TimeSpan length, string itemId, Table<AggregatedQuickStatus> minTable,
+            Func<ISession, string, DateTime, DateTime, Task<AggregatedQuickStatus>> Aggregator, TimeSpan detailedLength, int minCount = 29)
+        {
+            for (var start = startDate; start < DateTime.Now; start += length)
+            {
+                var end = start + length;
+                // check the bigger table for existing records
+                var existing = await minTable.Where(SelectExpression(itemId, start, end)).ExecuteAsync();
+                var lookup = existing.ToDictionary(e => e.TimeStamp.RoundDown(detailedLength));
+                var addCount = 0;
+                var skipped = 0;
+                for (var detailedStart = start; detailedStart < end; detailedStart += detailedLength)
+                {
+                    if (lookup.TryGetValue(detailedStart.RoundDown(detailedLength), out AggregatedQuickStatus sum) && sum.Count >= minCount)
+                    {
+                        skipped++;
+                        continue;
+                    }
+
+                    var detailedEnd = detailedStart + detailedLength;
+                    AggregatedQuickStatus result = await Aggregator(session, itemId, detailedStart, detailedEnd);
+                    if (result == null)
+                        continue;
+                    await session.ExecuteAsync(minTable.Insert(result));
+                    addCount += result.Count;
+                }
+                Console.WriteLine($"checked {start} {itemId} {addCount}\t{skipped}");
+            }
+        }
+
+        private static async Task<AggregatedQuickStatus> CreateBlock(ISession session, string itemId, DateTime detailedStart, DateTime detailedEnd)
+        {
+            var block = (await GetSmalestTable(session).Where(a => a.ProductId == itemId && a.TimeStamp >= detailedStart && a.TimeStamp < detailedEnd).ExecuteAsync()).ToList();
+            if (block.Count() == 0)
+                return null; // no data for this 
+            var result = new AggregatedQuickStatus(block.First());
+            result.MaxBuy = (float)block.Max(b => b.BuyPrice);
+            result.MaxSell = (float)block.Max(b => b.SellPrice);
+            result.MinBuy = (float)block.Min(b => b.BuyPrice);
+            result.MinSell = (float)block.Min(b => b.SellPrice);
+            result.Count = (short)block.Count();
+            return result;
+        }
+        private static async Task<AggregatedQuickStatus> CreateBlockAggregated(ISession session, string itemId, DateTime detailedStart, DateTime detailedEnd, Table<AggregatedQuickStatus> startingTable)
+        {
+            var block = (await startingTable.Where(a => a.ProductId == itemId && a.TimeStamp >= detailedStart && a.TimeStamp < detailedEnd).ExecuteAsync()).ToList();
+            if (block.Count() == 0)
+                return null; // no data for this 
+            var result = new AggregatedQuickStatus(block.First());
+            result.MaxBuy = (float)block.Max(b => b.MaxBuy);
+            result.MaxSell = (float)block.Max(b => b.MaxSell);
+            result.MinBuy = (float)block.Min(b => b.MinBuy);
+            result.MinSell = (float)block.Min(b => b.MinSell);
+            result.Count = (short)block.Sum(b => b.Count);
+            return result;
+        }
+
+        private static Expression<Func<AggregatedQuickStatus, bool>> SelectExpression(string itemId, DateTime start, DateTime end)
+        {
+            return a => a.ProductId == itemId && a.TimeStamp >= start && a.TimeStamp < end;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -128,11 +290,22 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             // await session.ExecuteAsync(new SimpleStatement("DROP table Flip;"));
             Table<StorageQuickStatus> tenseconds = GetSmalestTable(session);
             await tenseconds.CreateIfNotExistsAsync();
-            Table<AggregatedQuickStatus> minutes = GetMinutesTable(session);
+
+            Console.WriteLine(JsonConvert.SerializeObject(session.Execute("describe tables;")));
+            var minuteCount = (long)session.Execute("Select count(*) from " + TABLE_NAME_MINUTES + " where ProductId = 'BOOSTER_COOKIE'").FirstOrDefault().FirstOrDefault();
+            if (minuteCount == 0)
+            {
+                session.Execute("drop table " + TABLE_NAME_MINUTES);
+                session.Execute("drop table " + TABLE_NAME_HOURLY);
+                session.Execute("drop table " + TABLE_NAME_DAILY);
+                Console.WriteLine("dropped tables because they were empty");
+            }
+
+            var minutes = GetMinutesTable(session);
             await minutes.CreateIfNotExistsAsync();
-            Table<AggregatedQuickStatus> hours = GetHoursTable(session);
+            var hours = GetHoursTable(session);
             await hours.CreateIfNotExistsAsync();
-            Table<AggregatedQuickStatus> daily = GetDaysTable(session);
+            var daily = GetDaysTable(session);
             await daily.CreateIfNotExistsAsync();
 
             try
@@ -193,6 +366,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     SellOrdersCount = item.QuickStatus.SellOrders,
                     SellPrice = item.QuickStatus.SellPrice,
                     SellVolume = item.QuickStatus.SellVolume,
+                    ReferenceId = item.Id
                 };
                 return flip;
             });
@@ -240,13 +414,19 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return await cluster.ConnectAsync(keyspace);
         }
 
-        public async Task<IEnumerable<StorageQuickStatus>> GetStatus(string productId, DateTime start, DateTime end, int count = 1)
+        public async Task<IEnumerable<AggregatedQuickStatus>> GetStatus(string productId, DateTime start, DateTime end, int count = 1)
         {
             var session = await GetSession();
             var mapper = new Mapper(session);
             string tableName = GetTable(start, end);
-            return await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start).Take(count).ExecuteAsync();
-            var loadedFlip = await mapper.FetchAsync<StorageQuickStatus>("SELECT * FROM " + tableName
+            //return await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start).Take(count).ExecuteAsync();
+            if (tableName == TABLE_NAME_SECONDS)
+            {
+                return (await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start).Take(count).ExecuteAsync())
+                    .ToList().Select(s => new AggregatedQuickStatus(s));
+            }
+            Console.Write("selecting aggreate");
+            var loadedFlip = await mapper.FetchAsync<AggregatedQuickStatus>("SELECT * FROM " + tableName
                 + " where ProductId = ? and TimeStamp > ? and TimeStamp <= ? Order by Timestamp DESC", productId, start, end);
 
             return loadedFlip.ToList();
@@ -255,14 +435,13 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static string GetTable(DateTime start, DateTime end)
         {
             var length = (end - start);
-            var tableName = TABLE_NAME_DAILY; // one daily
+            if (length < TimeSpan.FromHours(1))
+                return TABLE_NAME_SECONDS;  // one every 10 seconds
+            if (length < TimeSpan.FromHours(12))
+                return TABLE_NAME_MINUTES; // 1 per 5 min
             if (length < TimeSpan.FromDays(7.01f))
-                tableName = TABLE_NAME_HOURLY; // 1 per 2 hours
-            else if (length < TimeSpan.FromHours(12))
-                tableName = TABLE_NAME_MINUTES; // 1 per 5 min
-            else if (length < TimeSpan.FromHours(1))
-                tableName = TABLE_NAME_SECONDS; // one every 10 seconds
-            return tableName;
+                return TABLE_NAME_HOURLY; // 1 per 2 hours
+            return TABLE_NAME_DAILY; // one daily
         }
     }
 }

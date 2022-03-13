@@ -40,9 +40,9 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 {
                     await GetConsumeTask(stoppingToken);
                 }
-                catch(NoHostAvailableException e)
+                catch (NoHostAvailableException e)
                 {
-                    logger.LogError(e,"");
+                    logger.LogError(e, "");
                     logger.LogError(Newtonsoft.Json.JsonConvert.SerializeObject(e.Errors));
                 }
                 catch (Exception e)
@@ -77,7 +77,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 }));
                 await session.ShutdownAsync();
                 await session.Cluster.ShutdownAsync();
-            }, stoppingToken, "sky-bazaar-test", 10);
+            }, stoppingToken, "sky-bazaar-test", 5);
         }
 
         private BazaarService GetService()

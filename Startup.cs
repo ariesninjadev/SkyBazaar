@@ -56,6 +56,7 @@ namespace Coflnet.Sky.SkyAuctionTracker
                     .EnableDetailedErrors()       // <-- with debugging (remove for production).
             );
             services.AddHostedService<BazaarBackgroundService>();
+            services.AddHostedService<AggregationService>();
             services.AddJaeger();
             services.AddTransient<BazaarService>();
         }

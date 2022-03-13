@@ -51,5 +51,23 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
             
             return result.FirstOrDefault();
         }
+        /// <summary>
+        /// Gets the latest status for an item
+        /// </summary>
+        /// <param name="itemId"></param>
+        /// <returns></returns>
+        [Route("{itemId}/data")]
+        [HttpGet]
+        public async Task<IEnumerable<SkyBazaar.Models.AggregatedQuickStatus>> GetData(string itemId, DateTime start, DateTime end)
+        {
+            Console.WriteLine(itemId);
+            Console.WriteLine(start);
+            var entries = await service.GetStatus(itemId,start, end, 100);
+            var result = entries.ToList();
+            
+            Console.WriteLine(result.Count());
+            
+            return result;
+        }
     }
 }

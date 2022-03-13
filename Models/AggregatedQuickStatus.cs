@@ -37,6 +37,13 @@ namespace Coflnet.Sky.SkyBazaar.Models
         [IgnoreMember]
         [JsonProperty("minSell")]
         public float MinSell { get; set; }
+        /// <summary>
+        /// Count of aggregated lines
+        /// </summary>
+        /// <value></value>
+        [IgnoreMember]
+        [JsonProperty("count")]
+        public short Count { get; set; }
 
         public AggregatedQuickStatus(StorageQuickStatus status) : base(status)
         {
