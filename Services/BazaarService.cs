@@ -163,7 +163,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         .Where(p => p.Id >= start && p.Id < end).AsNoTracking().ToListAsync();
                 if (pulls.Count == 0)
                 {
-                    if(pullInstanceId == 540526)
+                    if(pullInstanceId == 540527)
                     {
                         pullInstanceId = 540558;
                         continue;
