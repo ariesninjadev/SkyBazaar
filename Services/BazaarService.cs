@@ -295,6 +295,10 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             session.CreateKeyspaceIfNotExists("bazaar_quickstatus", replication);
             session.ChangeKeyspace("bazaar_quickstatus");
 
+            session.Execute("drop table " + TABLE_NAME_HOURLY);
+            session.Execute("drop table " + TABLE_NAME_DAILY);
+            Console.WriteLine("dropped tables for migration");
+
             // await session.ExecuteAsync(new SimpleStatement("DROP table Flip;"));
             Table<StorageQuickStatus> tenseconds = GetSmalestTable(session);
             await tenseconds.CreateIfNotExistsAsync();
