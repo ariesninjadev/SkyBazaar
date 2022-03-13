@@ -148,7 +148,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 catch (Exception e)
                 {
                     logger.LogError(e, "failed to retrieve pullInstance Id starting from 1");
-                    pullInstanceId = 1;
+                    pullInstanceId = 207;
                 }
             Console.WriteLine($"Pull instance ref id " + pullInstanceId);
             while (!noEntries && !stoppingToken.IsCancellationRequested)
