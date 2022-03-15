@@ -33,6 +33,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            return;
             await GetService().Create();
             while (!stoppingToken.IsCancellationRequested)
             {

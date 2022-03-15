@@ -10,7 +10,7 @@
     <ProjectReference Include="../dev/hypixel.csproj" />
   </ItemGroup>
   <PropertyGroup>
-    <DefaultItemExcludes>$(DefaultItemExcludes);Client\**\*</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Client\**\*;history\**\*;products.tar.gz</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>

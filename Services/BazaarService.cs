@@ -14,6 +14,7 @@ using hypixel;
 using System.Linq.Expressions;
 using RestSharp;
 using Microsoft.EntityFrameworkCore;
+using System.IO;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -107,6 +108,30 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
             Console.WriteLine($"  BuyChange: {productCount - buyChange}  SellChange: {productCount - sellChange}");
             //context.Update(lastPull);
+        }
+
+        internal async Task MigrateFromFile()
+        {
+            var session = await GetSession();
+            var parentFolder = "/run/media/ekwav/Data/dev/hypixel/SkyBazaar/history/products/product-export";
+            foreach (var dirPath in Directory.EnumerateDirectories(parentFolder))
+            {
+                var dir = new DirectoryInfo(dirPath);
+                foreach (var items in dir.EnumerateFiles().Batch(300))
+                {
+                    var products = await Task.WhenAll(items.Select(async item =>
+                    {
+                        var bytes = await File.ReadAllBytesAsync(item.FullName);
+                        var status = MessagePack.MessagePackSerializer.Deserialize<ProductInfo>(bytes);
+                        return ConvertQuickStatus(status, status.Timestamp);
+                    }));
+                    await Insertbatch(session, GetSmalestTable(session), products);
+                    Console.WriteLine($"Inserted batch {products.First().ProductId} {products.First().TimeStamp}");
+
+                    //Console.WriteLine(JsonConvert.SerializeObject(status));
+                }
+                dir.MoveTo("/run/media/ekwav/Data/dev/hypixel/SkyBazaar/history/products/migrated/" + dir.Name);
+            }
         }
 
         internal async Task MigrateFromMariadb(HypixelContext context, System.Threading.CancellationToken stoppingToken)
@@ -357,26 +382,27 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             {
                 if (item.QuickStatus == null)
                     throw new NullReferenceException("Quickstatus can't be null " + item.ProductId);
-                var flip = new StorageQuickStatus()
-                {
-                    TimeStamp = pull.Timestamp,
-                    ProductId = item.ProductId,
-                    SerialisedBuyOrders = MessagePack.MessagePackSerializer.Serialize(item.BuySummery),
-                    SerialisedSellOrders = MessagePack.MessagePackSerializer.Serialize(item.SellSummary),
-                    BuyMovingWeek = item.QuickStatus.BuyMovingWeek,
-                    BuyOrdersCount = item.QuickStatus.BuyOrders,
-                    BuyPrice = item.QuickStatus.BuyPrice,
-                    BuyVolume = item.QuickStatus.BuyVolume,
-                    SellMovingWeek = item.QuickStatus.SellMovingWeek,
-                    SellOrdersCount = item.QuickStatus.SellOrders,
-                    SellPrice = item.QuickStatus.SellPrice,
-                    SellVolume = item.QuickStatus.SellVolume,
-                    ReferenceId = item.Id
-                };
-                return flip;
+                var timestamp = pull.Timestamp;
+                return ConvertQuickStatus(item, timestamp);
             });
 
             Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.Now}");
+            await Insertbatch(session, table, inserts);
+            return;
+
+            var loadedFlip = (await GetStatus("kevin", DateTime.Now - TimeSpan.FromMinutes(200), DateTime.Now + TimeSpan.FromSeconds(2))).First();
+            //var loadedFlip = await mapper.FirstOrDefaultAsync<StorageQuickStatus>("SELECT * FROM StorageQuickStatus where ProductId = ? Order by Timestamp DESC", pull.Products.First().ProductId);
+            //var loadedFlips = await mapper.Execut;
+            //var loadedFlip = loadedFlips.First();
+            Console.WriteLine(loadedFlip.TimeStamp);
+            Console.WriteLine(loadedFlip.ProductId);
+            Console.WriteLine(JsonConvert.SerializeObject(MessagePack.MessagePackSerializer.Deserialize<List<dev.SellOrder>>(loadedFlip.SerialisedSellOrders)));
+            Console.WriteLine(JsonConvert.SerializeObject(loadedFlip.SerialisedSellOrders));
+
+        }
+
+        private async Task Insertbatch(ISession session, Table<StorageQuickStatus> table, IEnumerable<StorageQuickStatus> inserts)
+        {
             await Task.WhenAll(inserts.Select(async status =>
             {
                 for (int i = 0; i < 3; i++)
@@ -397,17 +423,26 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                             throw e;
                     }
             }));
-            return;
+        }
 
-            var loadedFlip = (await GetStatus("kevin", DateTime.Now - TimeSpan.FromMinutes(200), DateTime.Now + TimeSpan.FromSeconds(2))).First();
-            //var loadedFlip = await mapper.FirstOrDefaultAsync<StorageQuickStatus>("SELECT * FROM StorageQuickStatus where ProductId = ? Order by Timestamp DESC", pull.Products.First().ProductId);
-            //var loadedFlips = await mapper.Execut;
-            //var loadedFlip = loadedFlips.First();
-            Console.WriteLine(loadedFlip.TimeStamp);
-            Console.WriteLine(loadedFlip.ProductId);
-            Console.WriteLine(JsonConvert.SerializeObject(MessagePack.MessagePackSerializer.Deserialize<List<dev.SellOrder>>(loadedFlip.SerialisedSellOrders)));
-            Console.WriteLine(JsonConvert.SerializeObject(loadedFlip.SerialisedSellOrders));
-
+        private static StorageQuickStatus ConvertQuickStatus(ProductInfo item, DateTime timestamp)
+        {
+            return new StorageQuickStatus()
+            {
+                TimeStamp = timestamp,
+                ProductId = item.ProductId,
+                SerialisedBuyOrders = MessagePack.MessagePackSerializer.Serialize(item.BuySummery),
+                SerialisedSellOrders = MessagePack.MessagePackSerializer.Serialize(item.SellSummary),
+                BuyMovingWeek = item.QuickStatus.BuyMovingWeek,
+                BuyOrdersCount = item.QuickStatus.BuyOrders,
+                BuyPrice = item.QuickStatus.BuyPrice,
+                BuyVolume = item.QuickStatus.BuyVolume,
+                SellMovingWeek = item.QuickStatus.SellMovingWeek,
+                SellOrdersCount = item.QuickStatus.SellOrders,
+                SellPrice = item.QuickStatus.SellPrice,
+                SellVolume = item.QuickStatus.SellVolume,
+                ReferenceId = item.Id
+            };
         }
 
         public async Task<ISession> GetSession(string keyspace = "bazaar_quickstatus")
@@ -415,6 +450,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var cluster = Cluster.Builder()
                                 .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])
                                 .AddContactPoints(config["CASSANDRA:HOSTS"].Split(","))
+                                .WithCompression(CompressionType.LZ4)
                                 .Build();
             if (keyspace == null)
                 return await cluster.ConnectAsync();

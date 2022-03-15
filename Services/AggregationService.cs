@@ -25,7 +25,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await MigrateFromMariadb(stoppingToken);
+            await MigrateFromFile(stoppingToken);
             return;
             await Task.Delay(10000);
             while (!stoppingToken.IsCancellationRequested)
@@ -43,12 +43,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }
         }
 
-        private async Task MigrateFromMariadb(CancellationToken stoppingToken)
+        private async Task MigrateFromFile(CancellationToken stoppingToken)
         {
             using var scope = scopeFactory.CreateScope();
-            using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
             var bazaar = scope.ServiceProvider.GetRequiredService<BazaarService>();
-            await bazaar.MigrateFromMariadb(context, stoppingToken);
+            await bazaar.MigrateFromFile();
         }
 
         private async Task<ISession> DoCycle()
