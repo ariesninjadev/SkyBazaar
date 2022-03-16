@@ -115,7 +115,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var session = await GetSession();
             var table = GetSmalestTable(session);
             var sampleStatus = new StorageQuickStatus();
-            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-02-17'";
+            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-02-17' and Timestamp > '2021-10-07'";
             var highestTime = session.Execute(maxSelect).FirstOrDefault()?.FirstOrDefault();
             Nullable<Int64> highestId = 1;
             int pullInstanceId = 1;
@@ -150,6 +150,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     logger.LogError(e, "failed to retrieve pullInstance Id starting from 1");
                     pullInstanceId = 207;
                 }
+            if(pullInstanceId > 1000)
+                pullInstanceId--; // redo the last one to make sure none is lost
             Console.WriteLine($"Pull instance ref id " + pullInstanceId);
             while (!noEntries && !stoppingToken.IsCancellationRequested)
             {
