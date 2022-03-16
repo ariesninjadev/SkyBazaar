@@ -143,13 +143,13 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             if (pullInstanceId <= 1)
                 try
                 {
-                    var data = context.BazaarPrices.Find((int)highestId);
+                    var data = context.BazaarPrices.Include(b=>b.PullInstance).Where(b=>b.Id == highestId).FirstOrDefault();
                     pullInstanceId = data.PullInstance.Id;
                     Console.WriteLine("retrieved pullIntanceId");
                 }
                 catch (Exception e)
                 {
-                    pullInstanceId = 207;
+                    pullInstanceId = 4005005;
                     logger.LogError(e, "failed to retrieve pullInstance Id starting from " + pullInstanceId);
                 }
             if(pullInstanceId > 1000)
