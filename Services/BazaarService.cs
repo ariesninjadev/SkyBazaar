@@ -328,7 +328,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             {
                 Console.WriteLine("referenceid exists already");
             }
-            Console.WriteLine("there are this many booster cookies: " + JsonConvert.SerializeObject(session.Execute("Select count(*) from " + TABLE_NAME_SECONDS + " where ProductId = 'BOOSTER_COOKIE' and Timestamp > '2021-12-07").FirstOrDefault()));
+            Console.WriteLine("there are this many booster cookies: " + JsonConvert.SerializeObject(session.Execute("Select count(*) from " + TABLE_NAME_SECONDS + " where ProductId = 'BOOSTER_COOKIE' and Timestamp > '2021-12-07'").FirstOrDefault()));
         }
 
         private static Table<AggregatedQuickStatus> GetDaysTable(ISession session)
