@@ -147,8 +147,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 }
                 catch (Exception e)
                 {
-                    logger.LogError(e, "failed to retrieve pullInstance Id starting from 1");
                     pullInstanceId = 207;
+                    logger.LogError(e, "failed to retrieve pullInstance Id starting from " + pullInstanceId);
                 }
             if(pullInstanceId > 1000)
                 pullInstanceId--; // redo the last one to make sure none is lost
