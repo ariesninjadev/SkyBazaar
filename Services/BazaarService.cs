@@ -143,7 +143,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             if (pullInstanceId <= 1)
                 try
                 {
-                    var data = context.BazaarPrices.Include(b=>b.PullInstance).Where(b=>b.Id == highestId).FirstOrDefault();
+                    var data = context.BazaarPrices.Include(b => b.PullInstance).Where(b => b.Id == highestId).FirstOrDefault();
                     pullInstanceId = data.PullInstance.Id;
                     Console.WriteLine("retrieved pullIntanceId");
                 }
@@ -152,7 +152,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     pullInstanceId = 4005005;
                     logger.LogError(e, "failed to retrieve pullInstance Id starting from " + pullInstanceId);
                 }
-            if(pullInstanceId > 1000)
+            if (pullInstanceId > 1000)
                 pullInstanceId--; // redo the last one to make sure none is lost
             Console.WriteLine($"Pull instance ref id " + pullInstanceId);
             while (!noEntries && !stoppingToken.IsCancellationRequested)
@@ -167,7 +167,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         .Where(p => p.Id >= start && p.Id < end).AsNoTracking().ToListAsync();
                 if (pulls.Count == 0)
                 {
-                    if(pullInstanceId == 540527)
+                    if (pullInstanceId == 540527)
                     {
                         pullInstanceId = 540558;
                         continue;
@@ -195,7 +195,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var minutes = GetMinutesTable(session);
 
             // minute loop
-            var startDate = new DateTime(2022, 3, 1);
+            var startDate = new DateTime(2020, 3, 10);
             var length = TimeSpan.FromHours(6);
             // stonks have always been on bazaar
             var itemId = DEFAULT_ITEM_TAG;
@@ -207,21 +207,21 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 itemId = item;
                 Console.WriteLine("doing: " + itemId);
                 await AggregateMinutesData(session, startDate, length, itemId, GetMinutesTable(session), CreateBlock, TimeSpan.FromMinutes(5));
+                // hour loop
                 await AggregateMinutesData(session, startDate, TimeSpan.FromDays(1), itemId, GetHoursTable(session), (a, b, c, d) =>
                 {
                     return CreateBlockAggregated(a, b, c, d, GetMinutesTable(a));
                 }, TimeSpan.FromHours(2));
+                // day loop
                 await AggregateMinutesData(session, startDate, TimeSpan.FromDays(2), itemId, GetDaysTable(session), (a, b, c, d) =>
                 {
                     return CreateBlockAggregated(a, b, c, d, GetHoursTable(a));
                 }, TimeSpan.FromDays(1));
 
-                await Task.Delay(100000);
+                await Task.Delay(10000);
             }
 
-            // hour loop
 
-            // day loop
 
         }
 
