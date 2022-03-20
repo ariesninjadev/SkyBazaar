@@ -295,7 +295,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 var end = start + length;
                 // check the bigger table for existing records
                 var existing = await minTable.Where(SelectExpression(itemId, start - detailedLength, end)).ExecuteAsync();
-                var lookup = existing.GroupBy(e => e.TimeStamp.RoundDown(detailedLength)).Select(e=>e.First()).ToDictionary(e => e.TimeStamp.RoundDown(detailedLength));
+                var lookup = existing.GroupBy(e => e.TimeStamp.RoundDown(detailedLength)).Select(e => e.First()).ToDictionary(e => e.TimeStamp.RoundDown(detailedLength));
                 var addCount = 0;
                 var skipped = 0;
                 var lineMinCount = start < new DateTime(2022, 1, 1) ? 1 : minCount;
@@ -495,6 +495,10 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         public async Task<IEnumerable<AggregatedQuickStatus>> GetStatus(string productId, DateTime start, DateTime end, int count = 1)
         {
+            if (end == default)
+                end = DateTime.UtcNow;
+            if (start == default)
+                start = new DateTime(2020, 3, 10);
             var session = await GetSession();
             var mapper = new Mapper(session);
             string tableName = GetTable(start, end);
@@ -502,7 +506,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             if (tableName == TABLE_NAME_SECONDS)
             {
                 return (await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start)
-                    .OrderByDescending(d=>d.TimeStamp).Take(count).ExecuteAsync())
+                    .OrderByDescending(d => d.TimeStamp).Take(count).ExecuteAsync())
                     .ToList().Select(s => new AggregatedQuickStatus(s));
             }
             Console.Write("selecting aggreate");
