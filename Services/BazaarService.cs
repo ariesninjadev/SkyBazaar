@@ -117,15 +117,17 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 return; // nothing to do
             var ids = await GetAllItemIds();
             Console.WriteLine("aggregating minutes");
+            var start = DateTime.UtcNow - TimeSpan.FromMinutes(10);
             foreach (var itemId in ids)
             {
-                await AggregateMinutes(session, DateTime.UtcNow - TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10), itemId);
+                await AggregateMinutes(session, start, TimeSpan.FromMinutes(10), itemId);
             }
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
                 return;
+            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(4.1);
             foreach (var itemId in ids)
             {
-                await AggregateHours(session, DateTime.UtcNow - TimeSpan.FromHours(4.1), itemId);
+                await AggregateHours(session, hourlyStart, itemId);
             }
 
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
