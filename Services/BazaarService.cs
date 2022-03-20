@@ -109,13 +109,45 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             //context.Update(lastPull);
         }
 
+        internal async Task CheckAggregation(ISession session, IEnumerable<BazaarPull> bazaar)
+        {
+            var timestamp = bazaar.Last().Timestamp;
+            var boundary = TimeSpan.FromMinutes(5);
+            if (IsTimestampWithinGroup(timestamp, boundary))
+                return; // nothing to do
+            var ids = await GetAllItemIds();
+            Console.WriteLine("aggregating minutes");
+            foreach (var itemId in ids)
+            {
+                await AggregateMinutes(session, DateTime.UtcNow - TimeSpan.FromMinutes(10), TimeSpan.FromMinutes(10), itemId);
+            }
+            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
+                return;
+            foreach (var itemId in ids)
+            {
+                await AggregateHours(session, DateTime.UtcNow - TimeSpan.FromHours(4.1), itemId);
+            }
+
+            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
+                return;
+            foreach (var itemId in ids)
+            {
+                await AggregateDays(session, DateTime.UtcNow - TimeSpan.FromDays(2), itemId);
+            }
+        }
+
+        private static bool IsTimestampWithinGroup(DateTime timestamp, TimeSpan boundary)
+        {
+            return timestamp.Subtract(TimeSpan.FromSeconds(10)).RoundDown(boundary) == timestamp.RoundDown(boundary);
+        }
+
         internal async Task MigrateFromMariadb(HypixelContext context, System.Threading.CancellationToken stoppingToken)
         {
             var maxTime = new DateTime(2022, 2, 1);
             var session = await GetSession();
             var table = GetSmalestTable(session);
             var sampleStatus = new StorageQuickStatus();
-            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-02-17' and Timestamp > '2021-10-07'";
+            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-02-17 16:05' and Timestamp > '2021-10-07'";
             var highestTime = session.Execute(maxSelect).FirstOrDefault()?.FirstOrDefault();
             Nullable<Int64> highestId = 1;
             int pullInstanceId = 1;
@@ -198,25 +230,24 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var startDate = new DateTime(2020, 3, 10);
             var length = TimeSpan.FromHours(6);
             // stonks have always been on bazaar
-            var itemId = DEFAULT_ITEM_TAG;
-            var client = new RestClient("https://sky.coflnet.com");
-            var stringRes = await client.ExecuteAsync(new RestRequest("/api/items/bazaar/tags"));
-            var ids = JsonConvert.DeserializeObject<string[]>(stringRes.Content);
+            string[] ids = await GetAllItemIds();
             foreach (var item in ids)
             {
-                itemId = item;
+                var itemId = item;
+                var minTime = new DateTime(2022, 3, 1);
+                var maxTime = new DateTime(2022, 3, 3);
+                var count = await GetDaysTable(session).Where(r => r.TimeStamp > minTime && r.TimeStamp < maxTime && r.ProductId == itemId).Count().ExecuteAsync();
+                if (count != 0)
+                {
+                    Console.WriteLine("Item already aggregated " + itemId);
+                    continue;
+                }
                 Console.WriteLine("doing: " + itemId);
-                await AggregateMinutesData(session, startDate, length, itemId, GetMinutesTable(session), CreateBlock, TimeSpan.FromMinutes(5));
+                await AggregateMinutes(session, startDate, length, itemId);
                 // hour loop
-                await AggregateMinutesData(session, startDate, TimeSpan.FromDays(1), itemId, GetHoursTable(session), (a, b, c, d) =>
-                {
-                    return CreateBlockAggregated(a, b, c, d, GetMinutesTable(a));
-                }, TimeSpan.FromHours(2));
+                await AggregateHours(session, startDate, itemId);
                 // day loop
-                await AggregateMinutesData(session, startDate, TimeSpan.FromDays(2), itemId, GetDaysTable(session), (a, b, c, d) =>
-                {
-                    return CreateBlockAggregated(a, b, c, d, GetHoursTable(a));
-                }, TimeSpan.FromDays(1));
+                await AggregateDays(session, startDate, itemId);
 
                 await Task.Delay(10000);
             }
@@ -225,20 +256,50 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         }
 
+        private static async Task AggregateDays(ISession session, DateTime startDate, string itemId)
+        {
+            await AggregateMinutesData(session, startDate, TimeSpan.FromDays(2), itemId, GetDaysTable(session), (a, b, c, d) =>
+            {
+                return CreateBlockAggregated(a, b, c, d, GetHoursTable(a));
+            }, TimeSpan.FromDays(1));
+        }
+
+        private static async Task AggregateHours(ISession session, DateTime startDate, string itemId)
+        {
+            await AggregateMinutesData(session, startDate, TimeSpan.FromDays(1), itemId, GetHoursTable(session), (a, b, c, d) =>
+            {
+                return CreateBlockAggregated(a, b, c, d, GetMinutesTable(a));
+            }, TimeSpan.FromHours(2));
+        }
+
+        private static async Task AggregateMinutes(ISession session, DateTime startDate, TimeSpan length, string itemId)
+        {
+            await AggregateMinutesData(session, startDate, length, itemId, GetMinutesTable(session), CreateBlock, TimeSpan.FromMinutes(5));
+        }
+
+        private static async Task<string[]> GetAllItemIds()
+        {
+            var client = new RestClient("https://sky.coflnet.com");
+            var stringRes = await client.ExecuteAsync(new RestRequest("/api/items/bazaar/tags"));
+            var ids = JsonConvert.DeserializeObject<string[]>(stringRes.Content);
+            return ids;
+        }
+
         private static async Task AggregateMinutesData(ISession session, DateTime startDate, TimeSpan length, string itemId, Table<AggregatedQuickStatus> minTable,
             Func<ISession, string, DateTime, DateTime, Task<AggregatedQuickStatus>> Aggregator, TimeSpan detailedLength, int minCount = 29)
         {
-            for (var start = startDate; start < DateTime.Now; start += length)
+            for (var start = startDate; start + length < DateTime.UtcNow; start += length)
             {
                 var end = start + length;
                 // check the bigger table for existing records
-                var existing = await minTable.Where(SelectExpression(itemId, start, end)).ExecuteAsync();
-                var lookup = existing.ToDictionary(e => e.TimeStamp.RoundDown(detailedLength));
+                var existing = await minTable.Where(SelectExpression(itemId, start - detailedLength, end)).ExecuteAsync();
+                var lookup = existing.GroupBy(e => e.TimeStamp.RoundDown(detailedLength)).Select(e=>e.First()).ToDictionary(e => e.TimeStamp.RoundDown(detailedLength));
                 var addCount = 0;
                 var skipped = 0;
+                var lineMinCount = start < new DateTime(2022, 1, 1) ? 1 : minCount;
                 for (var detailedStart = start; detailedStart < end; detailedStart += detailedLength)
                 {
-                    if (lookup.TryGetValue(detailedStart.RoundDown(detailedLength), out AggregatedQuickStatus sum) && sum.Count >= minCount)
+                    if (lookup.TryGetValue(detailedStart.RoundDown(detailedLength), out AggregatedQuickStatus sum) && sum.Count >= lineMinCount)
                     {
                         skipped++;
                         continue;
@@ -385,7 +446,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 return flip;
             });
 
-            Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.Now}");
+            Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.UtcNow}");
             await Task.WhenAll(inserts.Select(async status =>
             {
                 for (int i = 0; i < 3; i++)
@@ -438,7 +499,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             //return await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start).Take(count).ExecuteAsync();
             if (tableName == TABLE_NAME_SECONDS)
             {
-                return (await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start).Take(count).ExecuteAsync())
+                return (await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start)
+                    .OrderByDescending(d=>d.TimeStamp).Take(count).ExecuteAsync())
                     .ToList().Select(s => new AggregatedQuickStatus(s));
             }
             Console.Write("selecting aggreate");

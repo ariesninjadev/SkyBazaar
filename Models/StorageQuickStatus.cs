@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MessagePack;
 using Newtonsoft.Json;
 
@@ -39,14 +40,26 @@ namespace Coflnet.Sky.SkyBazaar.Models
         [Cassandra.Mapping.Attributes.ClusteringKey]
         public DateTime TimeStamp { get; set; }
         [IgnoreMember]
-        [JsonProperty("buyOrdersSerialised")]
+        [JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
         public byte[] SerialisedBuyOrders { get; set; }
         [IgnoreMember]
-        [JsonProperty("sellOrdersSerialised")]
+        [JsonIgnore]
+        [System.Text.Json.Serialization.JsonIgnore]
         public byte[] SerialisedSellOrders { get; set; }
         [IgnoreMember]
         [JsonProperty("refId")]
+        [System.Text.Json.Serialization.JsonIgnore]
         public long ReferenceId { get; set; }
+
+        [Cassandra.Mapping.Attributes.Ignore]
+        [IgnoreMember]
+        [JsonProperty("buyOrders")]
+        public IEnumerable<BuyOrder> BuyOrders => MessagePack.MessagePackSerializer.Deserialize<IEnumerable<BuyOrder>>(SerialisedBuyOrders);
+        [Cassandra.Mapping.Attributes.Ignore]
+        [IgnoreMember]
+        [JsonProperty("sellOrders")]
+        public IEnumerable<SellOrder> SellOrders => MessagePack.MessagePackSerializer.Deserialize<IEnumerable<SellOrder>>(SerialisedSellOrders);
 
         public StorageQuickStatus() { }
 
@@ -83,9 +96,6 @@ namespace Coflnet.Sky.SkyBazaar.Models
     public class Order
     {
         public Order() { }
-
-        [IgnoreMember]
-        public int Id { get; set; }
         [Key(0)]
         [JsonProperty("amount")]
         public int Amount { get; set; }

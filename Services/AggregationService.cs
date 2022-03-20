@@ -36,7 +36,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 {
                     logger.LogError(e, "aggreating");
                 }
-                await Task.Delay(30000000);
+                await Task.Delay(300000);
             }
         }
 
