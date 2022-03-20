@@ -51,18 +51,18 @@ namespace Coflnet.Sky.SkyBazaar.Models
         /// </summary>
         /// <value></value>
         [JsonProperty("sellVol")]
-        public long SellVolume { get; internal set; }
+        public long SellVolume { get; set; }
         /// <summary>
         /// The buy volume (count of transfared items)
         /// </summary>
         /// <value></value>
         [JsonProperty("buyVol")]
-        public long BuyVolume { get; internal set; }
+        public long BuyVolume { get; set; }
         /// <summary>
         /// The Date and time this element coresponds to
         /// </summary>
         /// <value></value>
         [JsonProperty("timestamp")]
-        public DateTime Timestamp { get; internal set; }
+        public DateTime Timestamp { get; set; }
     }
 }

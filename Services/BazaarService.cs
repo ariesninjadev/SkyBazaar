@@ -521,7 +521,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var length = (end - start);
             if (length < TimeSpan.FromHours(1))
                 return TABLE_NAME_SECONDS;  // one every 10 seconds
-            if (length < TimeSpan.FromHours(12))
+            if (length < TimeSpan.FromHours(24))
                 return TABLE_NAME_MINUTES; // 1 per 5 min
             if (length < TimeSpan.FromDays(7.01f))
                 return TABLE_NAME_HOURLY; // 1 per 2 hours

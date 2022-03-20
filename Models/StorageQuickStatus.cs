@@ -55,11 +55,33 @@ namespace Coflnet.Sky.SkyBazaar.Models
         [Cassandra.Mapping.Attributes.Ignore]
         [IgnoreMember]
         [JsonProperty("buyOrders")]
-        public IEnumerable<BuyOrder> BuyOrders => MessagePack.MessagePackSerializer.Deserialize<IEnumerable<BuyOrder>>(SerialisedBuyOrders);
+        public IEnumerable<BuyOrder> BuyOrders
+        {
+            get
+            {
+                return MessagePack.MessagePackSerializer.Deserialize<IEnumerable<BuyOrder>>(SerialisedBuyOrders);
+            }
+            set
+            {
+                if(SerialisedBuyOrders == null && value != null)
+                    SerialisedBuyOrders = MessagePack.MessagePackSerializer.Serialize<IEnumerable<BuyOrder>>(value);
+            }
+        }
         [Cassandra.Mapping.Attributes.Ignore]
         [IgnoreMember]
         [JsonProperty("sellOrders")]
-        public IEnumerable<SellOrder> SellOrders => MessagePack.MessagePackSerializer.Deserialize<IEnumerable<SellOrder>>(SerialisedSellOrders);
+        public IEnumerable<SellOrder> SellOrders
+        {
+            get
+            {
+                return MessagePack.MessagePackSerializer.Deserialize<IEnumerable<SellOrder>>(SerialisedSellOrders);
+            }
+            set
+            {
+                if(SerialisedSellOrders == null && value != null)
+                    SerialisedSellOrders = MessagePack.MessagePackSerializer.Serialize(value);
+            }
+        }
 
         public StorageQuickStatus() { }
 
