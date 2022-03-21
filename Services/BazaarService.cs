@@ -27,6 +27,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static bool ranCreate;
         private IConfiguration config;
         private ILogger<BazaarService> logger;
+        ISession _session;
 
         private static Prometheus.Counter insertCount = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert", "How many inserts were made");
         private static Prometheus.Counter insertFailed = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert_failed", "How many inserts failed");
@@ -124,13 +125,14 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
                 return;
-            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(4.1);
+            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(4);
+            Console.WriteLine("aggregating hours");
             foreach (var itemId in ids)
             {
                 await AggregateHours(session, hourlyStart, itemId);
             }
 
-            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
+            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromDays(1)))
                 return;
             foreach (var itemId in ids)
             {
@@ -484,13 +486,16 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         public async Task<ISession> GetSession(string keyspace = "bazaar_quickstatus")
         {
+            if(_session != null)
+                return _session;
             var cluster = Cluster.Builder()
                                 .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])
                                 .AddContactPoints(config["CASSANDRA:HOSTS"].Split(","))
                                 .Build();
             if (keyspace == null)
                 return await cluster.ConnectAsync();
-            return await cluster.ConnectAsync(keyspace);
+            _session = await cluster.ConnectAsync(keyspace);
+            return _session;
         }
 
         public async Task<IEnumerable<AggregatedQuickStatus>> GetStatus(string productId, DateTime start, DateTime end, int count = 1)

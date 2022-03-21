@@ -61,7 +61,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 consumeCounter.Inc();
                 using var scope = scopeFactory.CreateScope();
                 BazaarService service = scope.ServiceProvider.GetRequiredService<BazaarService>();
-                using var session = await service.GetSession();
+                var session = await service.GetSession();
                 System.Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing");
                 await Task.WhenAll(bazaar.Select(async (b) =>
                 {
@@ -76,8 +76,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     }
                 }));
                 await service.CheckAggregation(session, bazaar);
-                await session.ShutdownAsync();
-                await session.Cluster.ShutdownAsync();
             }, stoppingToken, "sky-bazaar-test", 5);
         }
 

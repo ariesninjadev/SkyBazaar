@@ -55,9 +55,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var session = await service.GetSession();
 
             await service.Aggregate(session);
-
-            await session.ShutdownAsync();
-            await session.Cluster.ShutdownAsync();
             return session;
         }
 

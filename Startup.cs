@@ -60,7 +60,7 @@ namespace Coflnet.Sky.SkyAuctionTracker
             services.AddHostedService<BazaarBackgroundService>();
             services.AddHostedService<AggregationService>();
             services.AddJaeger();
-            services.AddTransient<BazaarService>();
+            services.AddSingleton<BazaarService>();
         }
 
         /// <summary>

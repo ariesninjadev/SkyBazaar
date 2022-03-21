@@ -81,7 +81,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         [HttpGet]
         public async Task<IEnumerable<GraphResult>> GetHistoryGraph(string itemId, DateTime start, DateTime end)
         {
-            var entries = await service.GetStatus(itemId, start, end, 100);
+            var entries = await service.GetStatus(itemId, start, end, 500);
             var result = entries.ToList();
 
             Console.WriteLine(result.Count());
