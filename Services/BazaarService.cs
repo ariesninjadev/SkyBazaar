@@ -116,23 +116,28 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var boundary = TimeSpan.FromMinutes(5);
             if (IsTimestampWithinGroup(timestamp, boundary))
                 return; // nothing to do
-            var ids = await GetAllItemIds();
             Console.WriteLine("aggregating minutes");
             var start = DateTime.UtcNow - TimeSpan.FromMinutes(10);
+            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(24);
+            _ = Task.Run(async () => await RunAgreggation(session, timestamp, start, hourlyStart));
+        }
+
+        private static async Task RunAgreggation(ISession session, DateTime timestamp, DateTime start, DateTime hourlyStart)
+        {
+            var ids = await GetAllItemIds();
             foreach (var itemId in ids)
             {
                 await AggregateMinutes(session, start, TimeSpan.FromMinutes(10), itemId);
             }
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
                 return;
-            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(24);
             Console.WriteLine("aggregating hours");
             foreach (var itemId in ids)
             {
                 await AggregateHours(session, hourlyStart, itemId);
             }
 
-            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromDays(2)))
+            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromDays(1)))
                 return;
             foreach (var itemId in ids)
             {
@@ -323,7 +328,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static async Task<AggregatedQuickStatus> CreateBlock(ISession session, string itemId, DateTime detailedStart, DateTime detailedEnd)
         {
             var block = (await GetSmalestTable(session).Where(a => a.ProductId == itemId && a.TimeStamp >= detailedStart && a.TimeStamp < detailedEnd).ExecuteAsync())
-                        .ToList().Select(qs=>{
+                        .ToList().Select(qs =>
+                        {
                             qs.BuyPrice = qs.BuyOrders.FirstOrDefault()?.PricePerUnit ?? qs.BuyPrice;
                             qs.SellPrice = qs.SellOrders.FirstOrDefault()?.PricePerUnit ?? qs.SellPrice;
                             return qs;
@@ -491,7 +497,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         public async Task<ISession> GetSession(string keyspace = "bazaar_quickstatus")
         {
-            if(_session != null)
+            if (_session != null)
                 return _session;
             var cluster = Cluster.Builder()
                                 .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])
