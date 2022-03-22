@@ -125,14 +125,14 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
                 return;
-            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(4);
+            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(24);
             Console.WriteLine("aggregating hours");
             foreach (var itemId in ids)
             {
                 await AggregateHours(session, hourlyStart, itemId);
             }
 
-            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromDays(1)))
+            if (IsTimestampWithinGroup(timestamp, TimeSpan.FromDays(2)))
                 return;
             foreach (var itemId in ids)
             {
@@ -322,7 +322,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private static async Task<AggregatedQuickStatus> CreateBlock(ISession session, string itemId, DateTime detailedStart, DateTime detailedEnd)
         {
-            var block = (await GetSmalestTable(session).Where(a => a.ProductId == itemId && a.TimeStamp >= detailedStart && a.TimeStamp < detailedEnd).ExecuteAsync()).ToList();
+            var block = (await GetSmalestTable(session).Where(a => a.ProductId == itemId && a.TimeStamp >= detailedStart && a.TimeStamp < detailedEnd).ExecuteAsync())
+                        .ToList().Select(qs=>{
+                            qs.BuyPrice = qs.BuyOrders.FirstOrDefault()?.PricePerUnit ?? qs.BuyPrice;
+                            qs.SellPrice = qs.SellOrders.FirstOrDefault()?.PricePerUnit ?? qs.SellPrice;
+                            return qs;
+                        });
             if (block.Count() == 0)
                 return null; // no data for this 
             var result = new AggregatedQuickStatus(block.First());
