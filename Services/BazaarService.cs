@@ -10,10 +10,11 @@ using Coflnet.Sky.SkyBazaar.Models;
 using Cassandra.Mapping;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
-using hypixel;
+using Coflnet.Sky.Core;
 using System.Linq.Expressions;
 using RestSharp;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Concurrent;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -240,6 +241,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var length = TimeSpan.FromHours(6);
             // stonks have always been on bazaar
             string[] ids = await GetAllItemIds();
+            var list = new ConcurrentQueue<string>();
             foreach (var item in ids)
             {
                 var itemId = item;
@@ -251,18 +253,38 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     Console.WriteLine("Item already aggregated " + itemId);
                     continue;
                 }
-                Console.WriteLine("doing: " + itemId);
-                await AggregateMinutes(session, startDate, length, itemId);
-                // hour loop
-                await AggregateHours(session, startDate, itemId);
-                // day loop
-                await AggregateDays(session, startDate, itemId);
+                list.Enqueue(item);
+            }
+            var workers = new List<Task>();
+            for (int i = 0; i < 4; i++)
+            {
+                var worker = Task.Run(async () =>
+                {
+                    while (list.TryDequeue(out string itemId))
+                    {
+                        await NewMethod(session, startDate, length, itemId);
+                    }
+                    Console.WriteLine("Done aggregating, yay ");
 
-                await Task.Delay(10000);
+                });
+                workers.Add(worker);
             }
 
+            await Task.WhenAll(workers);
 
 
+        }
+
+        private static async Task NewMethod(ISession session, DateTime startDate, TimeSpan length, string itemId)
+        {
+            Console.WriteLine("doing: " + itemId);
+            await AggregateMinutes(session, startDate, length, itemId);
+            // hour loop
+            await AggregateHours(session, startDate, itemId);
+            // day loop
+            await AggregateDays(session, startDate, itemId);
+
+            await Task.Delay(10000);
         }
 
         private static async Task AggregateDays(ISession session, DateTime startDate, string itemId)
@@ -476,7 +498,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     catch (Exception e)
                     {
                         insertFailed.Inc();
-                        logger.LogError(e, $"storing { status.ProductId} { status.TimeStamp}");
+                        logger.LogError(e, $"storing {status.ProductId} {status.TimeStamp}");
                         await Task.Delay(1500);
                         if (i == 2)
                             throw e;
