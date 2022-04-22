@@ -64,5 +64,17 @@ namespace Coflnet.Sky.SkyBazaar.Models
         /// <value></value>
         [JsonProperty("timestamp")]
         public DateTime Timestamp { get; set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <value></value>
+        [JsonProperty("buyMovingWeek")]
+        public long BuyMovingWeek { get; set; }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <value></value>
+        [JsonProperty("sellMovingWeek")]
+        public long SellMovingWeek { get; set; }
     }
 }

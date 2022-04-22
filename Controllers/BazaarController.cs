@@ -97,7 +97,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
                     Sell = a.SellOrders.FirstOrDefault()?.PricePerUnit ?? a.SellPrice,
                     SellVolume = a.SellVolume,
                     BuyVolume = a.BuyVolume,
-                    Timestamp = a.TimeStamp
+                    Timestamp = a.TimeStamp,
+                    MaxSell = a.MaxSell,
+                    BuyMovingWeek = a.BuyMovingWeek,
+                    SellMovingWeek = a.SellMovingWeek
+
                 };
             });
         }
