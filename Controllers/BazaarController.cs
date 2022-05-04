@@ -65,8 +65,10 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <returns></returns>
         [Route("{itemId}/snapshot")]
         [HttpGet]
-        public async Task<SkyBazaar.Models.StorageQuickStatus> GetClosestTo(string itemId, DateTime time)
+        public async Task<SkyBazaar.Models.StorageQuickStatus> GetClosestTo(string itemId, DateTime time = default)
         {
+            if(time == default)
+                time = DateTime.UtcNow;
             var entries = await service.GetStatus(itemId, time - TimeSpan.FromMinutes(1), time + TimeSpan.FromSeconds(9), 1);
             return entries.FirstOrDefault();
         }
