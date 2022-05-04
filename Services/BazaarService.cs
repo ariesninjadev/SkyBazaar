@@ -115,27 +115,25 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         {
             var timestamp = bazaar.Last().Timestamp;
             var boundary = TimeSpan.FromMinutes(5);
-            if (IsTimestampWithinGroup(timestamp, boundary))
+            if (bazaar.All(b=>IsTimestampWithinGroup(b.Timestamp, boundary)))
                 return; // nothing to do
-            Console.WriteLine("aggregating minutes");
-            var start = DateTime.UtcNow - TimeSpan.FromMinutes(10);
-            var hourlyStart = DateTime.UtcNow - TimeSpan.FromHours(24);
-            _ = Task.Run(async () => await RunAgreggation(session, timestamp, start, hourlyStart));
+            Console.WriteLine("aggregating minutes " + timestamp);
+            _ = Task.Run(async () => await RunAgreggation(session, timestamp));
         }
 
-        private static async Task RunAgreggation(ISession session, DateTime timestamp, DateTime start, DateTime hourlyStart)
+        private static async Task RunAgreggation(ISession session, DateTime timestamp)
         {
             var ids = await GetAllItemIds();
             foreach (var itemId in ids)
             {
-                await AggregateMinutes(session, start, TimeSpan.FromMinutes(10), itemId);
+                await AggregateMinutes(session, timestamp - TimeSpan.FromMinutes(30), TimeSpan.FromMinutes(10), itemId, timestamp + TimeSpan.FromSeconds(1));
             }
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromHours(2)))
                 return;
             Console.WriteLine("aggregating hours");
             foreach (var itemId in ids)
             {
-                await AggregateHours(session, hourlyStart, itemId);
+                await AggregateHours(session, timestamp - TimeSpan.FromHours(6), itemId);
             }
 
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromDays(1)))
@@ -255,8 +253,9 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 }
                 list.Enqueue(item);
             }
+            await Task.Delay(60000);
             var workers = new List<Task>();
-            for (int i = 0; i < 4; i++)
+            for (int i = 0; i < 3; i++)
             {
                 var worker = Task.Run(async () =>
                 {
@@ -278,7 +277,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static async Task NewMethod(ISession session, DateTime startDate, TimeSpan length, string itemId)
         {
             Console.WriteLine("doing: " + itemId);
-            await AggregateMinutes(session, startDate, length, itemId);
+            await AggregateMinutes(session, startDate, length, itemId, DateTime.UtcNow);
             // hour loop
             await AggregateHours(session, startDate, itemId);
             // day loop
@@ -303,9 +302,9 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }, TimeSpan.FromHours(2));
         }
 
-        private static async Task AggregateMinutes(ISession session, DateTime startDate, TimeSpan length, string itemId)
+        private static async Task AggregateMinutes(ISession session, DateTime startDate, TimeSpan length, string itemId, DateTime endDate)
         {
-            await AggregateMinutesData(session, startDate, length, itemId, GetMinutesTable(session), CreateBlock, TimeSpan.FromMinutes(5));
+            await AggregateMinutesData(session, startDate, length, itemId, GetMinutesTable(session), CreateBlock, TimeSpan.FromMinutes(5), 29, endDate);
         }
 
         private static async Task<string[]> GetAllItemIds()
@@ -317,9 +316,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         }
 
         private static async Task AggregateMinutesData(ISession session, DateTime startDate, TimeSpan length, string itemId, Table<AggregatedQuickStatus> minTable,
-            Func<ISession, string, DateTime, DateTime, Task<AggregatedQuickStatus>> Aggregator, TimeSpan detailedLength, int minCount = 29)
+            Func<ISession, string, DateTime, DateTime, Task<AggregatedQuickStatus>> Aggregator, TimeSpan detailedLength, int minCount = 29, DateTime stopTime = default)
         {
-            for (var start = startDate; start + length < DateTime.UtcNow; start += length)
+            if(stopTime == default)
+                stopTime = DateTime.UtcNow;
+            for (var start = startDate; start + length < stopTime; start += length)
             {
                 var end = start + length;
                 // check the bigger table for existing records

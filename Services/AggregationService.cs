@@ -50,7 +50,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private async Task<ISession> DoCycle()
         {
-            await Task.Delay(6000);
+            await Task.Delay(600000);
             var service = GetService();
             var session = await service.GetSession();
 
