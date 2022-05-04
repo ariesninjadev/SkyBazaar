@@ -486,7 +486,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.UtcNow}");
             await Task.WhenAll(inserts.Select(async status =>
             {
-                for (int i = 0; i < 3; i++)
+                var maxTries = 5;
+                for (int i = 0; i < maxTries; i++)
                     try
                     {
                         var statement = table.Insert(status);
@@ -498,9 +499,9 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     catch (Exception e)
                     {
                         insertFailed.Inc();
-                        logger.LogError(e, $"storing {status.ProductId} {status.TimeStamp}");
-                        await Task.Delay(1500);
-                        if (i == 2)
+                        logger.LogError(e, $"storing {status.ProductId} {status.TimeStamp} failed {i} times");
+                        await Task.Delay(500 * i);
+                        if (i >= maxTries -1)
                             throw e;
                     }
             }));
