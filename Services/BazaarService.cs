@@ -133,7 +133,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             Console.WriteLine("aggregating hours");
             foreach (var itemId in ids)
             {
-                await AggregateHours(session, timestamp - TimeSpan.FromHours(6), itemId);
+                await AggregateHours(session, timestamp - TimeSpan.FromHours(24), itemId);
             }
 
             if (IsTimestampWithinGroup(timestamp, TimeSpan.FromDays(1)))
