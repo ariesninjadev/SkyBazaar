@@ -32,6 +32,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private static Prometheus.Counter insertCount = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert", "How many inserts were made");
         private static Prometheus.Counter insertFailed = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert_failed", "How many inserts failed");
+        private static Prometheus.Counter checkSuccess = Prometheus.Metrics.CreateCounter("sky_bazaar_check_success", "How elements where found in cassandra");
+        private static Prometheus.Counter checkFail = Prometheus.Metrics.CreateCounter("sky_bazaar_check_fail", "How elements where not found in cassandra");
 
         public BazaarService(IConfiguration config, ILogger<BazaarService> logger)
         {
@@ -115,7 +117,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         {
             var timestamp = bazaar.Last().Timestamp;
             var boundary = TimeSpan.FromMinutes(5);
-            if (bazaar.All(b=>IsTimestampWithinGroup(b.Timestamp, boundary)))
+            if (bazaar.All(b => IsTimestampWithinGroup(b.Timestamp, boundary)))
                 return; // nothing to do
             Console.WriteLine("aggregating minutes " + timestamp);
             _ = Task.Run(async () => await RunAgreggation(session, timestamp));
@@ -147,6 +149,57 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static bool IsTimestampWithinGroup(DateTime timestamp, TimeSpan boundary)
         {
             return timestamp.Subtract(TimeSpan.FromSeconds(10)).RoundDown(boundary) == timestamp.RoundDown(boundary);
+        }
+
+        public async Task TestSamples(HypixelContext context, System.Threading.CancellationToken stoppingToken)
+        {
+            var session = await GetSession();
+            var table = GetSmalestTable(session);
+            var maxDateTime = new DateTime(2022, 2, 4);
+            var highestId = context.BazaarPrices.Max(p => p.Id);
+            for (int i = 0; i < 20_000; i++)
+            {
+                var ids = new List<int>();
+                for (int j = 0; j < 50; j++)
+                {
+                    ids.Add(Random.Shared.Next(300, highestId));
+                }
+                var refernces = await context.BazaarPrices.Include(p => p.PullInstance ).Where(p=>ids.Contains(p.Id) && p.PullInstance.Timestamp < maxDateTime).ToListAsync();
+        
+
+                var tasks = refernces.Select(async item => {
+                    try
+                    {
+                        var minTime = item.PullInstance.Timestamp - TimeSpan.FromSeconds(0.5);
+                        var maxTime = minTime + TimeSpan.FromSeconds(1);
+                        var exists =( await table.Where(s => s.ProductId == item.ProductId && s.TimeStamp >= minTime && s.TimeStamp < maxTime).ExecuteAsync()).ToList();
+                        if(exists.Any(s=> item.Id == s.ReferenceId))
+                        {
+                            checkSuccess.Inc();
+                            return;
+                        }
+                        checkFail.Inc();
+                        logger.LogError($"Could not find {item.ProductId} {JsonConvert.SerializeObject(item.PullInstance.Timestamp)} {item.Id} {exists.FirstOrDefault()?.ReferenceId} {exists.Count}");
+                    }
+                    catch (System.Exception)
+                    {
+                        
+                        throw;
+                    }
+                }).ToList();
+
+                await Task.WhenAll(tasks);
+                if(stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+                if(i % 500 == 0)
+                {
+                    logger.LogInformation($"Cassandra check reached {i}");
+                }
+            }
+            logger.LogInformation("done with cassandra sampling");
+
         }
 
         internal async Task MigrateFromMariadb(HypixelContext context, System.Threading.CancellationToken stoppingToken)
@@ -213,7 +266,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         continue;
                     }
                     throw new Exception("none retrieved from mariadb, exiting " + (pullInstanceId - 1));
-                    return;
                 }
 
                 foreach (var pull in pulls)
@@ -318,7 +370,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static async Task AggregateMinutesData(ISession session, DateTime startDate, TimeSpan length, string itemId, Table<AggregatedQuickStatus> minTable,
             Func<ISession, string, DateTime, DateTime, Task<AggregatedQuickStatus>> Aggregator, TimeSpan detailedLength, int minCount = 29, DateTime stopTime = default)
         {
-            if(stopTime == default)
+            if (stopTime == default)
                 stopTime = DateTime.UtcNow;
             for (var start = startDate; start + length < stopTime; start += length)
             {
@@ -502,7 +554,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         insertFailed.Inc();
                         logger.LogError(e, $"storing {status.ProductId} {status.TimeStamp} failed {i} times");
                         await Task.Delay(500 * i);
-                        if (i >= maxTries -1)
+                        if (i >= maxTries - 1)
                             throw e;
                     }
             }));

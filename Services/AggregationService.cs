@@ -45,12 +45,15 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             using var scope = scopeFactory.CreateScope();
             using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
             var bazaar = scope.ServiceProvider.GetRequiredService<BazaarService>();
+            
             await bazaar.MigrateFromMariadb(context, stoppingToken);
+            await bazaar.TestSamples(context, stoppingToken);
         }
 
         private async Task<ISession> DoCycle()
         {
-            await Task.Delay(600000);
+            if (System.Net.Dns.GetHostName().Contains("ekwav"))
+                await Task.Delay(6000000);
             var service = GetService();
             var session = await service.GetSession();
 
