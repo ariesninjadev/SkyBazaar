@@ -165,6 +165,10 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     ids.Add(Random.Shared.Next(300, highestId));
                 }
                 var refernces = await context.BazaarPrices.Include(p => p.PullInstance ).Where(p=>ids.Contains(p.Id) && p.PullInstance.Timestamp < maxDateTime).ToListAsync();
+                if(refernces.Count < 48)
+                {
+                    highestId -= 10_000;
+                }
         
 
                 var tasks = refernces.Select(async item => {
@@ -179,12 +183,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                             return;
                         }
                         checkFail.Inc();
-                        logger.LogError($"Could not find {item.ProductId} {JsonConvert.SerializeObject(item.PullInstance.Timestamp)} {item.Id} {exists.FirstOrDefault()?.ReferenceId} {exists.Count}");
+                        logger.LogWarning($"Could not find {item.ProductId} {JsonConvert.SerializeObject(item.PullInstance.Timestamp)} {item.Id} {exists.FirstOrDefault()?.ReferenceId} {exists.Count}");
                     }
-                    catch (System.Exception)
+                    catch (System.Exception e)
                     {
-                        
-                        throw;
+                        logger.LogError(e, "sampling cassandra");
                     }
                 }).ToList();
 
