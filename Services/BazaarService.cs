@@ -35,6 +35,22 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static Prometheus.Counter checkSuccess = Prometheus.Metrics.CreateCounter("sky_bazaar_check_success", "How elements where found in cassandra");
         private static Prometheus.Counter checkFail = Prometheus.Metrics.CreateCounter("sky_bazaar_check_fail", "How elements where not found in cassandra");
 
+        private static readonly Prometheus.Histogram checkSuccessHistogram = Prometheus.Metrics
+            .CreateHistogram("sky_bazaar_check_success_histogram", "Histogram of successfuly checked elements",
+                new Prometheus.HistogramConfiguration
+                {
+                    Buckets = Prometheus.Histogram.LinearBuckets(start: 1, width: 10_000_000, count: 40)
+                }
+            );
+
+        private static readonly Prometheus.Histogram checkFailHistogram = Prometheus.Metrics
+            .CreateHistogram("sky_bazaar_check_fail_histogram", "Histogram of failed checked elements",
+                new Prometheus.HistogramConfiguration
+                {
+                    Buckets = Prometheus.Histogram.LinearBuckets(start: 1, width: 10_000_000, count: 40)
+                }
+            );
+
         public BazaarService(IConfiguration config, ILogger<BazaarService> logger)
         {
             this.config = config;
@@ -180,9 +196,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         if(exists.Any(s=> item.Id == s.ReferenceId))
                         {
                             checkSuccess.Inc();
+                            checkSuccessHistogram.Observe(item.Id);
                             return;
                         }
                         checkFail.Inc();
+                        checkFailHistogram.Observe(item.Id);
                         logger.LogWarning($"Could not find {item.ProductId} {JsonConvert.SerializeObject(item.PullInstance.Timestamp)} {item.Id} {exists.FirstOrDefault()?.ReferenceId} {exists.Count}");
                     }
                     catch (System.Exception e)
