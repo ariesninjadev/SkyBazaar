@@ -309,25 +309,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             Console.WriteLine(highestTime);
         }
 
-        public async Task EmptyOldDb(IServiceScopeFactory factory, System.Threading.CancellationToken stoppingToken)
-        {
-            if (System.Net.Dns.GetHostName().Contains("ekwav"))
-                return;
-            while (!stoppingToken.IsCancellationRequested)
-            {
-                using var scope = factory.CreateScope();
-                using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
-                var pulls = await context.BazaarPull
-                        .Where(p=>p.Id > 3437504)
-                        .Include(p => p.Products).ThenInclude(p => p.SellSummary)
-                        .Include(p => p.Products).ThenInclude(p => p.BuySummery)
-                        .Include(p => p.Products).ThenInclude(p => p.QuickStatus)
-                        .Take(2).ToListAsync();
-                context.RemoveRange(pulls);
-                var x = await context.SaveChangesAsync();
-                Console.WriteLine("removed " + x);
-            }
-        }
 
         public async Task Aggregate(ISession session)
         {

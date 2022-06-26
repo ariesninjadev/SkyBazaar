@@ -45,7 +45,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             using var scope = scopeFactory.CreateScope();
             using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
             var bazaar = scope.ServiceProvider.GetRequiredService<BazaarService>();
-            await bazaar.EmptyOldDb(scopeFactory, stoppingToken);
             await bazaar.MigrateFromMariadb(context, stoppingToken);
             await bazaar.TestSamples(scopeFactory, stoppingToken);
         }
