@@ -47,7 +47,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var bazaar = scope.ServiceProvider.GetRequiredService<BazaarService>();
             
             await bazaar.MigrateFromMariadb(context, stoppingToken);
-            await bazaar.TestSamples(context, stoppingToken);
+            await bazaar.TestSamples(scopeFactory, stoppingToken);
         }
 
         private async Task<ISession> DoCycle()

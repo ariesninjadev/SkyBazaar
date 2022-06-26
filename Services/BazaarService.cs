@@ -15,6 +15,7 @@ using System.Linq.Expressions;
 using RestSharp;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -167,33 +168,38 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return timestamp.Subtract(TimeSpan.FromSeconds(10)).RoundDown(boundary) == timestamp.RoundDown(boundary);
         }
 
-        public async Task TestSamples(HypixelContext context, System.Threading.CancellationToken stoppingToken)
+        public async Task TestSamples(IServiceScopeFactory scopeFactory, System.Threading.CancellationToken stoppingToken)
         {
             var session = await GetSession();
             var table = GetSmalestTable(session);
             var maxDateTime = new DateTime(2022, 2, 4);
-            var highestId = context.BazaarPrices.Max(p => p.Id);
+            var highestId = 0;
             for (int i = 0; i < 20_000; i++)
             {
+                using var scope = scopeFactory.CreateScope();
+                using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
+                if(highestId == 0)
+                    highestId = context.BazaarPrices.Max(p => p.Id);
                 var ids = new List<int>();
                 for (int j = 0; j < 50; j++)
                 {
                     ids.Add(Random.Shared.Next(300, highestId));
                 }
-                var refernces = await context.BazaarPrices.Include(p => p.PullInstance ).Where(p=>ids.Contains(p.Id) && p.PullInstance.Timestamp < maxDateTime).ToListAsync();
-                if(refernces.Count < 48)
+                var refernces = await context.BazaarPrices.Include(p => p.PullInstance).Where(p => ids.Contains(p.Id) && p.PullInstance.Timestamp < maxDateTime).ToListAsync();
+                if (refernces.Count < 48)
                 {
                     highestId -= 10_000;
                 }
-        
 
-                var tasks = refernces.Select(async item => {
+
+                var tasks = refernces.Select(async item =>
+                {
                     try
                     {
                         var minTime = item.PullInstance.Timestamp - TimeSpan.FromSeconds(0.5);
                         var maxTime = minTime + TimeSpan.FromSeconds(1);
-                        var exists =( await table.Where(s => s.ProductId == item.ProductId && s.TimeStamp >= minTime && s.TimeStamp < maxTime).ExecuteAsync()).ToList();
-                        if(exists.Any(s=> item.Id == s.ReferenceId))
+                        var exists = (await table.Where(s => s.ProductId == item.ProductId && s.TimeStamp >= minTime && s.TimeStamp < maxTime).ExecuteAsync()).ToList();
+                        if (exists.Any(s => item.Id == s.ReferenceId))
                         {
                             checkSuccess.Inc();
                             checkSuccessHistogram.Observe(item.Id);
@@ -210,11 +216,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 }).ToList();
 
                 await Task.WhenAll(tasks);
-                if(stoppingToken.IsCancellationRequested)
+                if (stoppingToken.IsCancellationRequested)
                 {
                     break;
                 }
-                if(i % 500 == 0)
+                if (i % 500 == 0)
                 {
                     logger.LogInformation($"Cassandra check reached {i}");
                 }
