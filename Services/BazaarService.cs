@@ -178,7 +178,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             {
                 using var scope = scopeFactory.CreateScope();
                 using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
-                if(highestId == 0)
+                if (highestId == 0)
                     highestId = context.BazaarPrices.Max(p => p.Id);
                 var ids = new List<int>();
                 for (int j = 0; j < 50; j++)
@@ -307,6 +307,26 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 }
             }
             Console.WriteLine(highestTime);
+        }
+
+        public async Task EmptyOldDb(IServiceScopeFactory factory, System.Threading.CancellationToken stoppingToken)
+        {
+            if (System.Net.Dns.GetHostName().Contains("ekwav"))
+                return;
+            while (!stoppingToken.IsCancellationRequested)
+            {
+                using var scope = factory.CreateScope();
+                using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
+                var pulls = await context.BazaarPull
+                        .Where(p=>p.Id > 3437504)
+                        .Include(p => p.Products).ThenInclude(p => p.SellSummary)
+                        .Include(p => p.Products).ThenInclude(p => p.BuySummery)
+                        .Include(p => p.Products).ThenInclude(p => p.QuickStatus)
+                        .Take(2).ToListAsync();
+                context.RemoveRange(pulls);
+                var x = await context.SaveChangesAsync();
+                Console.WriteLine("removed " + x);
+            }
         }
 
         public async Task Aggregate(ISession session)
