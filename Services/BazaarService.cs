@@ -16,6 +16,7 @@ using RestSharp;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
+using OpenTracing.Util;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -623,13 +624,13 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var mapper = new Mapper(session);
             string tableName = GetTable(start, end);
             //return await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start).Take(count).ExecuteAsync();
+            using var span = GlobalTracer.Instance.BuildSpan("cassandra").StartActive();
             if (tableName == TABLE_NAME_SECONDS)
             {
                 return (await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start)
                     .OrderByDescending(d => d.TimeStamp).Take(count).ExecuteAsync())
                     .ToList().Select(s => new AggregatedQuickStatus(s));
             }
-            Console.Write("selecting aggreate");
             var loadedFlip = await mapper.FetchAsync<AggregatedQuickStatus>("SELECT * FROM " + tableName
                 + " where ProductId = ? and TimeStamp > ? and TimeStamp <= ? Order by Timestamp DESC", productId, start, end);
 
