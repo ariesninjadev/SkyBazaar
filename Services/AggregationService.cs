@@ -25,7 +25,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await MigrateFromMariadb(stoppingToken);
+            //await MigrateFromMariadb(stoppingToken);
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
