@@ -628,11 +628,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             if (tableName == TABLE_NAME_SECONDS)
             {
                 return (await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start)
-                    .OrderByDescending(d => d.TimeStamp).Take(count).ExecuteAsync())
+                    .OrderByDescending(d => d.TimeStamp).Take(count).ExecuteAsync().ConfigureAwait(false))
                     .ToList().Select(s => new AggregatedQuickStatus(s));
             }
             var loadedFlip = await mapper.FetchAsync<AggregatedQuickStatus>("SELECT * FROM " + tableName
-                + " where ProductId = ? and TimeStamp > ? and TimeStamp <= ? Order by Timestamp DESC", productId, start, end);
+                + " where ProductId = ? and TimeStamp > ? and TimeStamp <= ? Order by Timestamp DESC", productId, start, end).ConfigureAwait(false);
 
             return loadedFlip.ToList();
         }
