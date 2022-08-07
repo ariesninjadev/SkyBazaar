@@ -137,8 +137,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         internal async Task<IEnumerable<ItemPrice>> GetCurrentPrices(List<string> tags)
         {
-            if (currentState.Count > 0 && currentState.First().TimeStamp > DateTime.Now.AddMinutes(-1))
-                currentState.Select(s => new ItemPrice
+            //if (currentState.Count > 0 && currentState.First().TimeStamp > DateTime.Now.AddMinutes(-1))
+                return currentState.Select(s => new ItemPrice
                 {
                     ProductId = s.ProductId,
                     BuyPrice = s.BuyPrice,
