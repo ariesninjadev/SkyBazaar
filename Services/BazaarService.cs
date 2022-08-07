@@ -145,6 +145,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
             try
             {
+                // make sure a session exists
+                var session = await GetSession();
                 var prices = tags.Select(async t =>
                 {
                     var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(25), DateTime.UtcNow, 1).ConfigureAwait(false);
