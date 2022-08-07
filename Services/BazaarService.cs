@@ -594,6 +594,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 return flip;
             }).ToList();
 
+            currentState = inserts;
+
             Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.UtcNow}");
             await Task.WhenAll(inserts.Select(async status =>
             {
