@@ -17,6 +17,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTracing.Util;
+using System.Threading;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
@@ -38,6 +39,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static Prometheus.Counter checkFail = Prometheus.Metrics.CreateCounter("sky_bazaar_check_fail", "How elements where not found in cassandra");
 
         private List<StorageQuickStatus> currentState = new List<StorageQuickStatus>();
+        private SemaphoreSlim sessionOpenLock = new SemaphoreSlim(1);
 
         private static readonly Prometheus.Histogram checkSuccessHistogram = Prometheus.Metrics
             .CreateHistogram("sky_bazaar_check_success_histogram", "Histogram of successfuly checked elements",
@@ -645,13 +647,29 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         {
             if (_session != null)
                 return _session;
-            var cluster = Cluster.Builder()
-                                .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])
-                                .AddContactPoints(config["CASSANDRA:HOSTS"].Split(","))
-                                .Build();
-            if (keyspace == null)
-                return await cluster.ConnectAsync();
-            _session = await cluster.ConnectAsync(keyspace);
+            await sessionOpenLock.WaitAsync();
+            if (_session != null)
+                return _session;
+            try
+            {
+
+                var cluster = Cluster.Builder()
+                                    .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])
+                                    .AddContactPoints(config["CASSANDRA:HOSTS"].Split(","))
+                                    .Build();
+                if (keyspace == null)
+                    return await cluster.ConnectAsync();
+                _session = await cluster.ConnectAsync(keyspace);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "failed to connect to cassandra");
+                throw e;
+            }
+            finally
+            {
+                sessionOpenLock.Release();
+            }
             return _session;
         }
 
