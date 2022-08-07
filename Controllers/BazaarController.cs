@@ -127,7 +127,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         {
             var tags = await itemsApi.ItemsBazaarTagsGetAsync();
             var prices = tags.Select(async t => {
-                var prices = await service.GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(30), DateTime.UtcNow, 1).ConfigureAwait(false);
+                var prices = await service.GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(15), DateTime.UtcNow, 1).ConfigureAwait(false);
                 var price = prices.LastOrDefault();
                 return new ItemPrice()
                 {
@@ -135,7 +135,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
                     BuyPrice = price.BuyPrice,
                     SellPrice = price.SellPrice
                 };
-            }).ToList();
+            });
             return await Task.WhenAll(prices);
         }
     }
