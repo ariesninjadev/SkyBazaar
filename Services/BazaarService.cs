@@ -135,15 +135,14 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         internal async Task<IEnumerable<ItemPrice>> GetCurrentPrices(List<string> tags)
         {
-            if (currentState.Count > 0)
+
+            return currentState.Select(s => new ItemPrice
             {
-                return currentState.Select(s => new ItemPrice
-                {
-                    ProductId = s.ProductId,
-                    BuyPrice = s.BuyPrice,
-                    SellPrice = s.SellPrice
-                });
-            }
+                ProductId = s.ProductId,
+                BuyPrice = s.BuyPrice,
+                SellPrice = s.SellPrice
+            });
+
             var prices = tags.Select(async t =>
             {
                 var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(25), DateTime.UtcNow, 1).ConfigureAwait(false);
