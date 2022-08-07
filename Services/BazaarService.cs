@@ -135,7 +135,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         internal async Task<IEnumerable<ItemPrice>> GetCurrentPrices(List<string> tags)
         {
-            if(currentState.Count > 0)
+            if (currentState.Count > 0)
             {
                 return currentState.Select(s => new ItemPrice
                 {
@@ -144,9 +144,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     SellPrice = s.SellPrice
                 });
             }
-            var prices = tags.Select(async t => {
-                var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(15), DateTime.UtcNow, 1).ConfigureAwait(false);
+            var prices = tags.Select(async t =>
+            {
+                var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(25), DateTime.UtcNow, 1).ConfigureAwait(false);
                 var price = prices.LastOrDefault();
+                if (price == null)
+                    return new ItemPrice() { ProductId = t };
                 return new ItemPrice()
                 {
                     ProductId = t,
@@ -157,7 +160,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return await Task.WhenAll(prices);
         }
 
-        
+
         internal async Task CheckAggregation(ISession session, IEnumerable<BazaarPull> bazaar)
         {
             var timestamp = bazaar.Last().Timestamp;
