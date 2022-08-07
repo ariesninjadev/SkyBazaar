@@ -126,17 +126,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         public async Task<IEnumerable<ItemPrice>> GetAllPrices()
         {
             var tags = await itemsApi.ItemsBazaarTagsGetAsync();
-            var prices = tags.Select(async t => {
-                var prices = await service.GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(15), DateTime.UtcNow, 1).ConfigureAwait(false);
-                var price = prices.LastOrDefault();
-                return new ItemPrice()
-                {
-                    ProductId = t,
-                    BuyPrice = price.BuyPrice,
-                    SellPrice = price.SellPrice
-                };
-            });
-            return await Task.WhenAll(prices);
+            return await service.GetCurrentPrices(tags);
         }
     }
 }

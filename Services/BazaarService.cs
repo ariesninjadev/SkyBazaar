@@ -37,6 +37,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static Prometheus.Counter checkSuccess = Prometheus.Metrics.CreateCounter("sky_bazaar_check_success", "How elements where found in cassandra");
         private static Prometheus.Counter checkFail = Prometheus.Metrics.CreateCounter("sky_bazaar_check_fail", "How elements where not found in cassandra");
 
+        private List<StorageQuickStatus> currentState = new List<StorageQuickStatus>();
+
         private static readonly Prometheus.Histogram checkSuccessHistogram = Prometheus.Metrics
             .CreateHistogram("sky_bazaar_check_success_histogram", "Histogram of successfuly checked elements",
                 new Prometheus.HistogramConfiguration
@@ -131,6 +133,31 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             //context.Update(lastPull);
         }
 
+        internal async Task<IEnumerable<ItemPrice>> GetCurrentPrices(List<string> tags)
+        {
+            if(currentState.Count > 0)
+            {
+                return currentState.Select(s => new ItemPrice
+                {
+                    ProductId = s.ProductId,
+                    BuyPrice = s.BuyPrice,
+                    SellPrice = s.SellPrice
+                });
+            }
+            var prices = tags.Select(async t => {
+                var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(15), DateTime.UtcNow, 1).ConfigureAwait(false);
+                var price = prices.LastOrDefault();
+                return new ItemPrice()
+                {
+                    ProductId = t,
+                    BuyPrice = price.BuyPrice,
+                    SellPrice = price.SellPrice
+                };
+            });
+            return await Task.WhenAll(prices);
+        }
+
+        
         internal async Task CheckAggregation(ISession session, IEnumerable<BazaarPull> bazaar)
         {
             var timestamp = bazaar.Last().Timestamp;
@@ -563,7 +590,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     ReferenceId = item.Id
                 };
                 return flip;
-            });
+            }).ToList();
 
             Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.UtcNow}");
             await Task.WhenAll(inserts.Select(async status =>
