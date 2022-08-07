@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using Coflnet.Sky.SkyAuctionTracker.Services;
 using dev;
 using Coflnet.Sky.SkyBazaar.Models;
+using Coflnet.Sky.Items.Client.Api;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Controllers
 {
@@ -20,14 +21,17 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
     public class BazaarController : ControllerBase
     {
         private readonly BazaarService service;
+        private readonly IItemsApi itemsApi;
 
         /// <summary>
         /// Creates a new instance of <see cref="BazaarController"/>
         /// </summary>
         /// <param name="service"></param>
-        public BazaarController(BazaarService service)
+        /// <param name="itemsApi"></param>
+        public BazaarController(BazaarService service, IItemsApi itemsApi)
         {
             this.service = service;
+            this.itemsApi = itemsApi;
         }
 
         /// <summary>
@@ -36,6 +40,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <param name="itemId"></param>
         /// <returns></returns>
         [Route("{itemId}/status")]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
         [HttpGet]
         public async Task<SkyBazaar.Models.StorageQuickStatus> GetStatus(string itemId)
         {
@@ -50,6 +55,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <param name="end"></param>
         /// <returns></returns>
         [Route("{itemId}/data")]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
         [HttpGet]
         public async Task<IEnumerable<SkyBazaar.Models.AggregatedQuickStatus>> GetData(string itemId, DateTime start, DateTime end)
         {
@@ -64,6 +70,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <param name="time"></param>
         /// <returns></returns>
         [Route("{itemId}/snapshot")]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
         [HttpGet]
         public async Task<SkyBazaar.Models.StorageQuickStatus> GetClosestTo(string itemId, DateTime time = default)
         {
@@ -80,6 +87,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <param name="end"></param>
         /// <returns></returns>
         [Route("{itemId}/history")]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
         [HttpGet]
         public async Task<IEnumerable<GraphResult>> GetHistoryGraph(string itemId, DateTime start, DateTime end)
         {
@@ -106,6 +114,29 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
 
                 };
             });
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <returns></returns>
+        [Route("prices")]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [HttpGet]
+        public async Task<IEnumerable<ItemPrice>> GetAllPrices()
+        {
+            var tags = await itemsApi.ItemsBazaarTagsGetAsync();
+            var prices = tags.Select(async t => {
+                var prices = await service.GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(30), DateTime.UtcNow, 1).ConfigureAwait(false);
+                var price = prices.LastOrDefault();
+                return new ItemPrice()
+                {
+                    ProductId = t,
+                    BuyPrice = price.BuyPrice,
+                    SellPrice = price.SellPrice
+                };
+            }).ToList();
+            return await Task.WhenAll(prices);
         }
     }
 }

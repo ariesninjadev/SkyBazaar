@@ -17,6 +17,7 @@ using Microsoft.OpenApi.Models;
 using OpenTracing;
 using OpenTracing.Util;
 using Prometheus;
+using Coflnet.Sky.Items.Client.Api;
 
 namespace Coflnet.Sky.SkyAuctionTracker
 {
@@ -61,6 +62,11 @@ namespace Coflnet.Sky.SkyAuctionTracker
             services.AddHostedService<AggregationService>();
             services.AddJaeger();
             services.AddSingleton<BazaarService>();
+            services.AddResponseCaching();
+            services.AddMemoryCache();
+            services.AddSingleton<IItemsApi, ItemsApi>(d=>{
+                return new ItemsApi(Configuration["ITEMS_BASE_URL"]);
+            });
         }
 
         /// <summary>
@@ -81,7 +87,7 @@ namespace Coflnet.Sky.SkyAuctionTracker
                 c.RoutePrefix = "api";
             });
 
-            app.UseHttpsRedirection();
+            app.UseResponseCaching();
 
             app.UseRouting();
 

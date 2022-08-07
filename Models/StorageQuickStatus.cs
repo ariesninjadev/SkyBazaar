@@ -63,7 +63,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
             }
             set
             {
-                if(SerialisedBuyOrders == null && value != null)
+                if (SerialisedBuyOrders == null && value != null)
                     SerialisedBuyOrders = MessagePack.MessagePackSerializer.Serialize<IEnumerable<BuyOrder>>(value);
             }
         }
@@ -78,7 +78,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
             }
             set
             {
-                if(SerialisedSellOrders == null && value != null)
+                if (SerialisedSellOrders == null && value != null)
                     SerialisedSellOrders = MessagePack.MessagePackSerializer.Serialize(value);
             }
         }
