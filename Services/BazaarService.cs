@@ -135,28 +135,36 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         internal async Task<IEnumerable<ItemPrice>> GetCurrentPrices(List<string> tags)
         {
-
-            return currentState.Select(s => new ItemPrice
-            {
-                ProductId = s.ProductId,
-                BuyPrice = s.BuyPrice,
-                SellPrice = s.SellPrice
-            });
-
-            var prices = tags.Select(async t =>
-            {
-                var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(25), DateTime.UtcNow, 1).ConfigureAwait(false);
-                var price = prices.LastOrDefault();
-                if (price == null)
-                    return new ItemPrice() { ProductId = t };
-                return new ItemPrice()
+            if (currentState.Count > 0 && currentState.First().TimeStamp > DateTime.Now.AddMinutes(-1))
+                currentState.Select(s => new ItemPrice
                 {
-                    ProductId = t,
-                    BuyPrice = price.BuyPrice,
-                    SellPrice = price.SellPrice
-                };
-            });
-            return await Task.WhenAll(prices);
+                    ProductId = s.ProductId,
+                    BuyPrice = s.BuyPrice,
+                    SellPrice = s.SellPrice
+                });
+
+            try
+            {
+                var prices = tags.Select(async t =>
+                {
+                    var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(25), DateTime.UtcNow, 1).ConfigureAwait(false);
+                    var price = prices.LastOrDefault();
+                    if (price == null)
+                        return new ItemPrice() { ProductId = t };
+                    return new ItemPrice()
+                    {
+                        ProductId = t,
+                        BuyPrice = price.BuyPrice,
+                        SellPrice = price.SellPrice
+                    };
+                });
+                return await Task.WhenAll(prices);
+            }
+            catch (System.Exception e)
+            {
+                logger.LogError(e, "Error getting current prices");
+                return new List<ItemPrice>();
+            }
         }
 
 
