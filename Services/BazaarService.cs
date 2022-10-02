@@ -37,6 +37,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private static Prometheus.Counter insertFailed = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert_failed", "How many inserts failed");
         private static Prometheus.Counter checkSuccess = Prometheus.Metrics.CreateCounter("sky_bazaar_check_success", "How elements where found in cassandra");
         private static Prometheus.Counter checkFail = Prometheus.Metrics.CreateCounter("sky_bazaar_check_fail", "How elements where not found in cassandra");
+        private static Prometheus.Counter aggregateCount = Prometheus.Metrics.CreateCounter("sky_bazaar_aggregation", "How many aggregations were started (should be one every 5 min)");
 
         private List<StorageQuickStatus> currentState = new List<StorageQuickStatus>();
         private SemaphoreSlim sessionOpenLock = new SemaphoreSlim(1);
@@ -138,12 +139,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         internal async Task<IEnumerable<ItemPrice>> GetCurrentPrices(List<string> tags)
         {
             //if (currentState.Count > 0 && currentState.First().TimeStamp > DateTime.Now.AddMinutes(-1))
-                return currentState.Select(s => new ItemPrice
-                {
-                    ProductId = s.ProductId,
-                    BuyPrice = s.BuyPrice,
-                    SellPrice = s.SellPrice
-                });
+            return currentState.Select(s => new ItemPrice
+            {
+                ProductId = s.ProductId,
+                BuyPrice = s.BuyPrice,
+                SellPrice = s.SellPrice
+            });
 
             try
             {
@@ -184,6 +185,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private static async Task RunAgreggation(ISession session, DateTime timestamp)
         {
+            aggregateCount.Inc();
             var ids = await GetAllItemIds();
             foreach (var itemId in ids)
             {
