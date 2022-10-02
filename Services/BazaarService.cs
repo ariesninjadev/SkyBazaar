@@ -207,7 +207,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private static bool IsTimestampWithinGroup(DateTime timestamp, TimeSpan boundary)
         {
-            return timestamp.Subtract(TimeSpan.FromSeconds(10)).RoundDown(boundary) == timestamp.RoundDown(boundary);
+            return timestamp.Subtract(TimeSpan.FromSeconds(20)).RoundDown(boundary) == timestamp.RoundDown(boundary);
         }
 
         public async Task TestSamples(IServiceScopeFactory scopeFactory, System.Threading.CancellationToken stoppingToken)
