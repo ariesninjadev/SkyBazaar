@@ -55,7 +55,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <param name="end"></param>
         /// <returns></returns>
         [Route("{itemId}/data")]
-        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 10, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         [HttpGet]
         public async Task<IEnumerable<SkyBazaar.Models.AggregatedQuickStatus>> GetData(string itemId, DateTime start, DateTime end)
         {
@@ -70,11 +70,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <param name="time"></param>
         /// <returns></returns>
         [Route("{itemId}/snapshot")]
-        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 20, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "time" })]
         [HttpGet]
         public async Task<SkyBazaar.Models.StorageQuickStatus> GetClosestTo(string itemId, DateTime time = default)
         {
-            if(time == default)
+            if (time == default)
                 time = DateTime.UtcNow;
             var entries = await service.GetStatus(itemId, time - TimeSpan.FromMinutes(1), time + TimeSpan.FromSeconds(9), 1);
             return entries.FirstOrDefault();
@@ -87,7 +87,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Controllers
         /// <param name="end"></param>
         /// <returns></returns>
         [Route("{itemId}/history")]
-        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false)]
+        [ResponseCache(Duration = 120, Location = ResponseCacheLocation.Any, NoStore = false, VaryByQueryKeys = new string[] { "start", "end" })]
         [HttpGet]
         public async Task<IEnumerable<GraphResult>> GetHistoryGraph(string itemId, DateTime start, DateTime end)
         {
