@@ -468,6 +468,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     await session.ExecuteAsync(minTable.Insert(result));
                     addCount += result.Count;
                 }
+                if(length < TimeSpan.FromMinutes(10) && Random.Shared.NextDouble() > 0.1)
+                    continue;
                 Console.WriteLine($"checked {start} {itemId} {addCount}\t{skipped}");
             }
         }
