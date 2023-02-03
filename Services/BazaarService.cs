@@ -379,7 +379,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }
             await Task.Delay(60000);
             var workers = new List<Task>();
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 1; i++)
             {
                 var worker = Task.Run(async () =>
                 {
