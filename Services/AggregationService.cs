@@ -53,6 +53,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         {
             if (System.Net.Dns.GetHostName().Contains("ekwav"))
                 await Task.Delay(60000000);
+            await Task.Delay(300_000);
             var service = GetService();
             var session = await service.GetSession();
 

@@ -56,6 +56,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private Task GetConsumeTask(CancellationToken stoppingToken)
         {
+            logger.LogInformation($"starting consumption from {config["TOPICS:BAZAAR"]}");
             return Coflnet.Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config, config["TOPICS:BAZAAR"], async bazaar =>
             {
                 consumeCounter.Inc();
