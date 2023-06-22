@@ -629,7 +629,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     {
                         insertFailed.Inc();
                         logger.LogError(e, $"storing {status.ProductId} {status.TimeStamp} failed {i} times");
-                        await Task.Delay(500 * i);
+                        await Task.Delay(500 * (i + 1));
                         if (i >= maxTries - 1)
                             throw e;
                     }

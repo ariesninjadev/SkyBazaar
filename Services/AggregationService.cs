@@ -25,6 +25,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            logger.LogInformation("Aggregation is currently disabled because there are no plans to insert new data");
+            return;
             //await MigrateFromMariadb(stoppingToken);
             while (!stoppingToken.IsCancellationRequested)
             {
