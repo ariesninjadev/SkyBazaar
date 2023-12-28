@@ -21,7 +21,14 @@ using System.Threading;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
 {
-    public class BazaarService
+    public interface ISessionContainer
+    {
+        /// <summary>
+        /// The cassandra session
+        /// </summary>
+        ISession Session { get; }
+    }
+    public class BazaarService : ISessionContainer
     {
         private const string TABLE_NAME_DAILY = "QuickStatusDaly";
         private const string TABLE_NAME_HOURLY = "QuickStatusHourly";
@@ -32,6 +39,10 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private IConfiguration config;
         private ILogger<BazaarService> logger;
         ISession _session;
+        /// <summary>
+        /// <inheritdoc/>
+        /// </summary>
+        public ISession Session => _session;
 
         private static Prometheus.Counter insertCount = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert", "How many inserts were made");
         private static Prometheus.Counter insertFailed = Prometheus.Metrics.CreateCounter("sky_bazaar_status_insert_failed", "How many inserts failed");
@@ -468,7 +479,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     await session.ExecuteAsync(minTable.Insert(result));
                     addCount += result.Count;
                 }
-                if(length < TimeSpan.FromMinutes(10) && Random.Shared.NextDouble() > 0.1)
+                if (length < TimeSpan.FromMinutes(10) && Random.Shared.NextDouble() > 0.1)
                     continue;
                 Console.WriteLine($"checked {start} {itemId} {addCount}\t{skipped}");
             }
@@ -531,6 +542,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             };
             session.CreateKeyspaceIfNotExists("bazaar_quickstatus", replication);
             session.ChangeKeyspace("bazaar_quickstatus");
+            _session = session;
 
             /*session.Execute("drop table " + TABLE_NAME_HOURLY);
             session.Execute("drop table " + TABLE_NAME_DAILY);

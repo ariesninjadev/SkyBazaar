@@ -18,22 +18,25 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
     public class BazaarBackgroundService : BackgroundService
     {
-        private IServiceScopeFactory scopeFactory;
+        private BazaarService bazaarService;
+        private OrderBookService orderBookService;
         private IConfiguration config;
         private ILogger<BazaarBackgroundService> logger;
 
         Prometheus.Counter consumeCounter = Prometheus.Metrics.CreateCounter("sky_bazaar_consume_counter", "How many message batches were consumed from kafka");
 
         public BazaarBackgroundService(
-            IServiceScopeFactory scopeFactory, IConfiguration config, ILogger<BazaarBackgroundService> logger)
+            IConfiguration config, ILogger<BazaarBackgroundService> logger, OrderBookService orderBookService, BazaarService bazaarService)
         {
-            this.scopeFactory = scopeFactory;
             this.config = config;
             this.logger = logger;
+            this.orderBookService = orderBookService;
+            this.bazaarService = bazaarService;
         }
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await GetService().Create();
+            await bazaarService.Create();
+            await orderBookService.Load();
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -60,29 +63,30 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return Coflnet.Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config, config["TOPICS:BAZAAR"], async bazaar =>
             {
                 consumeCounter.Inc();
-                using var scope = scopeFactory.CreateScope();
-                BazaarService service = scope.ServiceProvider.GetRequiredService<BazaarService>();
-                var session = await service.GetSession();
+                var session = await bazaarService.GetSession();
                 System.Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing");
                 await Task.WhenAll(bazaar.Select(async (b) =>
                 {
                     try
                     {
-                        await service.AddEntry(b, session);
+                        await bazaarService.AddEntry(b, session);
                     }
                     catch (System.Exception e)
                     {
                         logger.LogError(e, "saving");
                         throw e;
                     }
+                    try
+                    {
+                        await orderBookService.BazaarPull(b);
+                    }
+                    catch (System.Exception e)
+                    {
+                        logger.LogError(e, "orderbook check");
+                    }
                 }));
-                await service.CheckAggregation(session, bazaar);
+                await bazaarService.CheckAggregation(session, bazaar);
             }, stoppingToken, "sky-bazaar", 5);
-        }
-
-        private BazaarService GetService()
-        {
-            return scopeFactory.CreateScope().ServiceProvider.GetRequiredService<BazaarService>();
         }
     }
 }
