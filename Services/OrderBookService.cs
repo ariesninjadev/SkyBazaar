@@ -7,6 +7,7 @@ using Cassandra;
 using Cassandra.Data.Linq;
 using Cassandra.Mapping;
 using Castle.Core.Logging;
+using Coflnet.Sky.Core;
 using Coflnet.Sky.EventBroker.Client.Api;
 using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.SkyBazaar.Models;
@@ -61,7 +62,7 @@ public class OrderBookService
             {
                 Summary = "You were " + action,
                 Message = $"Your {kind}-order for {outbid.Amount}x {name ?? "item"} has been {action} for {order.PricePerUnit} per unit",
-                Reference = outbid.Amount + outbid.ItemId + outbid.PricePerUnit + outbid.Timestamp.Ticks,
+                Reference = (outbid.Amount + outbid.ItemId + outbid.PricePerUnit + outbid.Timestamp.Ticks).Truncate(32),
                 SourceType = "bazaar",
                 SourceSubId = "outbid"
             });
