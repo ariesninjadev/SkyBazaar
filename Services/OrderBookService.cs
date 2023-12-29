@@ -6,10 +6,12 @@ using System.Threading.Tasks;
 using Cassandra;
 using Cassandra.Data.Linq;
 using Cassandra.Mapping;
+using Castle.Core.Logging;
 using Coflnet.Sky.EventBroker.Client.Api;
 using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.SkyBazaar.Models;
 using dev;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services;
 public class OrderBookService
@@ -18,13 +20,15 @@ public class OrderBookService
     private IItemsApi itemsApi;
     private Table<OrderEntry> orderBookTable;
     private ISessionContainer sessionContainer;
+    private ILogger<OrderBookService> logger;
     private ConcurrentDictionary<string, OrderBook> cache = new ConcurrentDictionary<string, OrderBook>();
 
-    public OrderBookService(ISessionContainer service, IMessageApi messageApi, IItemsApi itemsApi)
+    public OrderBookService(ISessionContainer service, IMessageApi messageApi, IItemsApi itemsApi, ILogger<OrderBookService> logger)
     {
         sessionContainer = service;
         this.messageApi = messageApi;
         this.itemsApi = itemsApi;
+        this.logger = logger;
     }
 
     internal Task<OrderBook> GetOrderBook(string itemTag)
@@ -61,6 +65,7 @@ public class OrderBookService
                 SourceType = "bazaar",
                 SourceSubId = "outbid"
             });
+            logger.LogInformation($"order book: User {outbid.UserId} was {action} by {order.UserId} for {order.ItemId} {order.Amount}x {order.PricePerUnit}");
             // remove userId to prevent spamming
             outbid.UserId = null;
         }

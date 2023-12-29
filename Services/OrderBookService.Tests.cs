@@ -9,6 +9,9 @@ using System;
 using System.Collections.Generic;
 using Coflnet.Sky.EventBroker.Client.Model;
 using System.Linq;
+using Confluent.Kafka;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services;
 
@@ -18,7 +21,8 @@ public class OrderBookServiceTests
     {
         public OrderEntry LastOrder { get; private set; }
         public OrderEntry RemovedOrder { get; private set; }
-        public NoDbOrderBookService(ISessionContainer service, IMessageApi messageApi, IItemsApi itemsApi) : base(service, messageApi, itemsApi)
+        public NoDbOrderBookService(ISessionContainer service, IMessageApi messageApi, IItemsApi itemsApi, ILogger<OrderBookService> logger) 
+            : base(service, messageApi, itemsApi, logger)
         {
         }
         protected override Task InsertToDb(OrderEntry order)
@@ -43,7 +47,7 @@ public class OrderBookServiceTests
         container.SetupGet(c => c.Session).Returns(null as ISession);
         messageApiMock = new Mock<IMessageApi>();
         itemsApiMock = new Mock<IItemsApi>();
-        orderBookService = new NoDbOrderBookService(container.Object, messageApiMock.Object, itemsApiMock.Object);
+        orderBookService = new NoDbOrderBookService(container.Object, messageApiMock.Object, itemsApiMock.Object, NullLogger<OrderBookService>.Instance);
     }
 
     [Test]
