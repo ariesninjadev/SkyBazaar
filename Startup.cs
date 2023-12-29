@@ -71,7 +71,7 @@ namespace Coflnet.Sky.SkyAuctionTracker
                 return new ItemsApi(Configuration["ITEMS_BASE_URL"]);
             });
             services.AddSingleton<IMessageApi>(d=>{
-                return new MessageApi(Configuration["EVENTBROKER_BASE_URL"]);
+                return new MessageApi(Configuration["EVENTS_BASE_URL"]);
             });
         }
 
