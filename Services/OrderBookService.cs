@@ -92,8 +92,8 @@ public class OrderBookService
             });
             var currentMinSell = product.BuySummery.MinBy(o => o.PricePerUnit)?.PricePerUnit ?? 10_000_000;
             var currentMaxBuy = product.SellSummary.MaxBy(o => o.PricePerUnit)?.PricePerUnit ?? 0;
-            await NewMethod(orderBook.Sell, (OrderEntry e) => e.PricePerUnit < currentMinSell && e.Timestamp < pull.Timestamp);
-            await NewMethod(orderBook.Buy, (OrderEntry e) => e.PricePerUnit > currentMaxBuy && e.Timestamp < pull.Timestamp);
+            await DropNotPresent(orderBook.Sell, (OrderEntry e) => e.PricePerUnit < currentMinSell && e.Timestamp < pull.Timestamp);
+            await DropNotPresent(orderBook.Buy, (OrderEntry e) => e.PricePerUnit > currentMaxBuy && e.Timestamp < pull.Timestamp);
             var side = orderBook.Sell;
             // add/update new orders
             foreach (var item in product.BuySummery)
@@ -136,10 +136,10 @@ public class OrderBookService
         });
     }
 
-    private async Task NewMethod(List<OrderEntry> side, Func<OrderEntry, bool> missingFunc)
+    private async Task DropNotPresent(List<OrderEntry> side, Func<OrderEntry, bool> missingFunc)
     {
         // drop filled/canceled orders
-        foreach (var item in side.Where(missingFunc).ToList())
+        foreach (var item in side.Where(o => missingFunc(o) || o.Timestamp < DateTime.UtcNow - TimeSpan.FromDays(7)).ToList())
         {
             side.Remove(item);
             await RemoveFromDb(item);
