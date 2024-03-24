@@ -156,8 +156,10 @@ public class OrderBookService
                 var book = new OrderBook();
                 return book;
             });
-            var side = order.IsSell ? orderBook.Sell : orderBook.Buy;
-            side.Remove(order);
+            if(orderBook.Remove(order))
+                logger.LogInformation($"order book: User {order.UserId} removed order for {order.ItemId} {order.Amount}x {order.PricePerUnit}");
+            else 
+                logger.LogWarning($"order book: User {order.UserId} tried to remove non existing order for {order.ItemId} {order.Amount}x {order.PricePerUnit} {order.Timestamp}");
             await RemoveFromDb(order);
         }
     }

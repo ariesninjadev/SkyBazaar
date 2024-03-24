@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Coflnet.Sky.SkyBazaar.Models;
 
@@ -11,7 +13,7 @@ public class OrderBook
     /// <summary>
     /// all sell orders (smallest is best)
     /// </summary>
-    public List<OrderEntry> Sell { get; set; }= new();
+    public List<OrderEntry> Sell { get; set; } = new();
 
     /// <summary>
     /// Returns true if there was sombebody outbid by the new order
@@ -45,5 +47,13 @@ public class OrderBook
             }
         }
         return false;
+    }
+
+    internal bool Remove(OrderEntry order)
+    {
+        var side = order.IsSell ? this.Sell : this.Buy;
+        var onBook = side.Where(o => o.Timestamp == order.Timestamp && o.PlayerName != null).FirstOrDefault();
+        return side.Remove(onBook);
+
     }
 }
