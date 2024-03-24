@@ -26,7 +26,7 @@ public class OrderBook
         outbid = null;
         if (entry.IsSell)
         {
-            foreach (var item in Sell)
+            foreach (var item in Sell.OrderByDescending(o => o.PricePerUnit).Take(10))
             {
                 if (item.PricePerUnit > entry.PricePerUnit && item.UserId != null)
                 {
@@ -37,7 +37,7 @@ public class OrderBook
         }
         else
         {
-            foreach (var item in Buy)
+            foreach (var item in Buy.OrderByDescending(o => o.PricePerUnit).Take(10))
             {
                 if (item.PricePerUnit < entry.PricePerUnit && item.UserId != null)
                 {

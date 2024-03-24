@@ -96,7 +96,7 @@ public class OrderBookService
             await DropNotPresent(orderBook.Buy, (OrderEntry e) => e.PricePerUnit > currentMaxBuy && e.Timestamp < pull.Timestamp);
             var side = orderBook.Sell;
             // add/update new orders
-            foreach (var item in product.BuySummery)
+            foreach (var item in product.BuySummery.OrderByDescending(o => o.PricePerUnit))
             {
                 // find current
                 var current = side.Where(o => o.PricePerUnit == item.PricePerUnit).Sum(o => o.Amount);
@@ -115,7 +115,7 @@ public class OrderBookService
                 await AddOrder(order);
             }
             side = orderBook.Buy;
-            foreach (var item in product.SellSummary)
+            foreach (var item in product.SellSummary.OrderBy(o => o.PricePerUnit))
             {
                 // find current
                 var current = side.Where(o => o.PricePerUnit == item.PricePerUnit).Sum(o => o.Amount);
@@ -156,9 +156,9 @@ public class OrderBookService
                 var book = new OrderBook();
                 return book;
             });
-            if(orderBook.Remove(order))
+            if (orderBook.Remove(order))
                 logger.LogInformation($"order book: User {order.UserId} removed order for {order.ItemId} {order.Amount}x {order.PricePerUnit}");
-            else 
+            else
                 logger.LogWarning($"order book: User {order.UserId} tried to remove non existing order for {order.ItemId} {order.Amount}x {order.PricePerUnit} {order.Timestamp}");
             await RemoveFromDb(order);
         }
