@@ -26,7 +26,7 @@ public class OrderBook
         {
             foreach (var item in Sell)
             {
-                if (item.PricePerUnit > entry.PricePerUnit)
+                if (item.PricePerUnit > entry.PricePerUnit && item.UserId != null)
                 {
                     outbid = item;
                     return true;
@@ -37,7 +37,7 @@ public class OrderBook
         {
             foreach (var item in Buy)
             {
-                if (item.PricePerUnit < entry.PricePerUnit)
+                if (item.PricePerUnit < entry.PricePerUnit && item.UserId != null)
                 {
                     outbid = item;
                     return true;
