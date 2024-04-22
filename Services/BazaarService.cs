@@ -149,38 +149,12 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         internal async Task<IEnumerable<ItemPrice>> GetCurrentPrices(List<string> tags)
         {
-            //if (currentState.Count > 0 && currentState.First().TimeStamp > DateTime.Now.AddMinutes(-1))
             return currentState.Select(s => new ItemPrice
             {
                 ProductId = s.ProductId,
                 BuyPrice = s.BuyPrice,
                 SellPrice = s.SellPrice
             });
-
-            try
-            {
-                // make sure a session exists
-                var session = await GetSession();
-                var prices = tags.Select(async t =>
-                {
-                    var prices = await GetStatus(t, DateTime.UtcNow - TimeSpan.FromSeconds(25), DateTime.UtcNow, 1).ConfigureAwait(false);
-                    var price = prices.LastOrDefault();
-                    if (price == null)
-                        return new ItemPrice() { ProductId = t };
-                    return new ItemPrice()
-                    {
-                        ProductId = t,
-                        BuyPrice = price.BuyPrice,
-                        SellPrice = price.SellPrice
-                    };
-                });
-                return await Task.WhenAll(prices);
-            }
-            catch (System.Exception e)
-            {
-                logger.LogError(e, "Error getting current prices");
-                return new List<ItemPrice>();
-            }
         }
 
 
@@ -222,148 +196,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         {
             return timestamp.Subtract(TimeSpan.FromSeconds(20)).RoundDown(boundary) == timestamp.RoundDown(boundary);
         }
-
-        public async Task TestSamples(IServiceScopeFactory scopeFactory, System.Threading.CancellationToken stoppingToken)
-        {
-            var session = await GetSession();
-            var table = GetSmalestTable(session);
-            var maxDateTime = new DateTime(2022, 2, 4);
-            var highestId = 0;
-            for (int i = 0; i < 20_000; i++)
-            {
-                using var scope = scopeFactory.CreateScope();
-                using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
-                if (highestId == 0)
-                    highestId = context.BazaarPrices.Max(p => p.Id);
-                var ids = new List<int>();
-                for (int j = 0; j < 50; j++)
-                {
-                    ids.Add(Random.Shared.Next(300, highestId));
-                }
-                var refernces = await context.BazaarPrices.Include(p => p.PullInstance).Where(p => ids.Contains(p.Id) && p.PullInstance.Timestamp < maxDateTime).ToListAsync();
-                if (refernces.Count < 48)
-                {
-                    highestId -= 10_000;
-                }
-
-
-                var tasks = refernces.Select(async item =>
-                {
-                    try
-                    {
-                        var minTime = item.PullInstance.Timestamp - TimeSpan.FromSeconds(0.5);
-                        var maxTime = minTime + TimeSpan.FromSeconds(1);
-                        var exists = (await table.Where(s => s.ProductId == item.ProductId && s.TimeStamp >= minTime && s.TimeStamp < maxTime).ExecuteAsync()).ToList();
-                        if (exists.Any(s => item.Id == s.ReferenceId))
-                        {
-                            checkSuccess.Inc();
-                            checkSuccessHistogram.Observe(item.Id);
-                            return;
-                        }
-                        checkFail.Inc();
-                        checkFailHistogram.Observe(item.Id);
-                        logger.LogWarning($"Could not find {item.ProductId} {JsonConvert.SerializeObject(item.PullInstance.Timestamp)} {item.Id} {exists.FirstOrDefault()?.ReferenceId} {exists.Count}");
-                    }
-                    catch (System.Exception e)
-                    {
-                        logger.LogError(e, "sampling cassandra");
-                    }
-                }).ToList();
-
-                await Task.WhenAll(tasks);
-                if (stoppingToken.IsCancellationRequested)
-                {
-                    break;
-                }
-                if (i % 500 == 0)
-                {
-                    logger.LogInformation($"Cassandra check reached {i}");
-                }
-            }
-            logger.LogInformation("done with cassandra sampling");
-
-        }
-
-        internal async Task MigrateFromMariadb(HypixelContext context, System.Threading.CancellationToken stoppingToken)
-        {
-            var maxTime = new DateTime(2022, 2, 1);
-            var session = await GetSession();
-            var table = GetSmalestTable(session);
-            var sampleStatus = new StorageQuickStatus();
-            var maxSelect = $"Select max(Timestamp) from {TABLE_NAME_SECONDS} where ProductId = '{DEFAULT_ITEM_TAG}' and Timestamp < '2022-02-17 16:05' and Timestamp > '2022-02-07'";
-            var highestTime = session.Execute(maxSelect).FirstOrDefault()?.FirstOrDefault();
-            Nullable<Int64> highestId = 1;
-            int pullInstanceId = 1;
-            Console.WriteLine($"max timestamp is {highestTime} {highestTime?.GetType()?.Name}");
-            if (highestTime != null)
-            {
-                var minTime = ((DateTimeOffset)highestTime).Subtract(TimeSpan.FromSeconds(1));
-                var maxRetTime = ((DateTimeOffset)highestTime).Add(TimeSpan.FromSeconds(1));
-                var newest = await table.Where(t => t.ProductId == DEFAULT_ITEM_TAG && t.TimeStamp > minTime && t.TimeStamp < maxTime)
-                            .FirstOrDefault().ExecuteAsync();
-                highestId = newest?.ReferenceId;
-                if (highestId == null)
-                {
-                    // lost migrationid 
-                    var time = ((DateTimeOffset)highestTime).DateTime;
-                    var fromDb = await context.BazaarPull.Where(b => b.Timestamp > minTime && b.Timestamp < maxRetTime)
-                                    .FirstOrDefaultAsync();
-                    Console.WriteLine(JsonConvert.SerializeObject(fromDb));
-                    pullInstanceId = fromDb.Id;
-                }
-                Console.WriteLine(JsonConvert.SerializeObject(newest));
-            }
-            Console.WriteLine($"Starting migrating from " + highestId);
-            var noEntries = false;
-            if (pullInstanceId <= 1)
-                try
-                {
-                    var data = context.BazaarPrices.Include(b => b.PullInstance).Where(b => b.Id == highestId).FirstOrDefault();
-                    pullInstanceId = data.PullInstance.Id;
-                    Console.WriteLine("retrieved pullIntanceId");
-                }
-                catch (Exception e)
-                {
-                    pullInstanceId = 4005005;
-                    logger.LogError(e, "failed to retrieve pullInstance Id starting from " + pullInstanceId);
-                }
-            if (pullInstanceId > 1000)
-                pullInstanceId--; // redo the last one to make sure none is lost
-            Console.WriteLine($"Pull instance ref id " + pullInstanceId);
-            while (!noEntries && !stoppingToken.IsCancellationRequested)
-            {
-                var start = pullInstanceId;
-                pullInstanceId += 4;
-                var end = pullInstanceId;
-                var pulls = await context.BazaarPull
-                        .Include(p => p.Products).ThenInclude(p => p.SellSummary)
-                        .Include(p => p.Products).ThenInclude(p => p.BuySummery)
-                        .Include(p => p.Products).ThenInclude(p => p.QuickStatus)
-                        .Where(p => p.Id >= start && p.Id < end).AsNoTracking().ToListAsync();
-                if (pulls.Count == 0)
-                {
-                    if (pullInstanceId == 540527)
-                    {
-                        pullInstanceId = 540558;
-                        continue;
-                    }
-                    throw new Exception("none retrieved from mariadb, exiting " + (pullInstanceId - 1));
-                }
-
-                foreach (var pull in pulls)
-                {
-                    if (pull.Timestamp >= new DateTime(2022, 2, 17, 16, 9, 38, DateTimeKind.Utc))
-                    {
-                        Console.WriteLine("whooooo migration done");
-                        noEntries = true;
-                        return;
-                    }
-                    await AddEntry(pull, session);
-                }
-            }
-            Console.WriteLine(highestTime);
-        }
-
 
         public async Task Aggregate(ISession session)
         {
@@ -587,7 +419,10 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private static Table<StorageQuickStatus> GetSmalestTable(ISession session)
         {
-            return new Table<StorageQuickStatus>(session, new MappingConfiguration(), TABLE_NAME_SECONDS);
+            var mapping = new MappingConfiguration();
+            // set chunk_length_in_kb to 128
+
+            return new Table<StorageQuickStatus>(session, mapping, TABLE_NAME_SECONDS);
         }
 
         public async Task AddEntry(BazaarPull pull, ISession session = null)
@@ -647,16 +482,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     }
             }));
             return;
-
-            var loadedFlip = (await GetStatus("kevin", DateTime.Now - TimeSpan.FromMinutes(200), DateTime.Now + TimeSpan.FromSeconds(2))).First();
-            //var loadedFlip = await mapper.FirstOrDefaultAsync<StorageQuickStatus>("SELECT * FROM StorageQuickStatus where ProductId = ? Order by Timestamp DESC", pull.Products.First().ProductId);
-            //var loadedFlips = await mapper.Execut;
-            //var loadedFlip = loadedFlips.First();
-            Console.WriteLine(loadedFlip.TimeStamp);
-            Console.WriteLine(loadedFlip.ProductId);
-            Console.WriteLine(JsonConvert.SerializeObject(MessagePack.MessagePackSerializer.Deserialize<List<dev.SellOrder>>(loadedFlip.SerialisedSellOrders)));
-            Console.WriteLine(JsonConvert.SerializeObject(loadedFlip.SerialisedSellOrders));
-
         }
 
         public async Task<ISession> GetSession(string keyspace = "bazaar_quickstatus")

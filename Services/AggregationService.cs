@@ -42,15 +42,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             }
         }
 
-        private async Task MigrateFromMariadb(CancellationToken stoppingToken)
-        {
-            using var scope = scopeFactory.CreateScope();
-            using var context = scope.ServiceProvider.GetRequiredService<HypixelContext>();
-            var bazaar = scope.ServiceProvider.GetRequiredService<BazaarService>();
-            await bazaar.MigrateFromMariadb(context, stoppingToken);
-            await bazaar.TestSamples(scopeFactory, stoppingToken);
-        }
-
         private async Task<ISession> DoCycle()
         {
             if (System.Net.Dns.GetHostName().Contains("ekwav"))
