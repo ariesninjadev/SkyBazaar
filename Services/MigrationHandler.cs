@@ -119,6 +119,8 @@ public class MigrationHandler<T>
         var list = new List<T>(batchSize);
         foreach (var value in values)
         {
+            if(value == null)
+                continue;
             list.Add(value);
             if (list.Count == batchSize)
             {
