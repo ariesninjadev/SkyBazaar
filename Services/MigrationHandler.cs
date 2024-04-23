@@ -140,6 +140,7 @@ public class MigrationHandler<T>
         {
             batchStatement.Add(newTable.Insert(score));
         }
+        batchStatement.SetConsistencyLevel(ConsistencyLevel.Quorum);
         await session.ExecuteAsync(batchStatement);
     }
 
