@@ -33,6 +33,7 @@ public class MigrationHandler<T>
         this.newTableFactory = newTableFactory;
     }
 
+    SemaphoreSlim queryThrottle = new SemaphoreSlim(10);
     public async Task Migrate(CancellationToken stoppingToken = default)
     {
         newTableFactory().CreateIfNotExists();
@@ -59,36 +60,35 @@ public class MigrationHandler<T>
             offset = int.Parse(fromRedis);
             logger.LogInformation("Resuming migration of {table} from {0}", tableName, offset);
         }
-        var semaphore = new SemaphoreSlim(10);
         do
         {
             _ = Task.Run(async () =>
             {
-                try
+                for (int i = 0; i < 10; i++)
                 {
-                    await semaphore.WaitAsync();
-                    var insertCount = await InsertBatch(prefix, db, offset, page);
-                    Interlocked.Add(ref offset, insertCount);
-                }
-                catch (System.Exception e)
-                {
-                    logger.LogError(e, "Batch insert failed, ");
-                    await Task.Delay(2000);
-                    var insertCount = await InsertBatch(prefix, db, offset, page);
-                    Interlocked.Add(ref offset, insertCount);
-                    await Task.Delay(1000000);
-                    throw;
-                }
-                finally
-                {
-                    semaphore.Release();
+                    try
+                    {
+                        await queryThrottle.WaitAsync();
+                        var insertCount = await InsertBatch(prefix, db, offset, page);
+                        Interlocked.Add(ref offset, insertCount);
+                        return;
+                    }
+                    catch (System.Exception e)
+                    {
+                        logger.LogError(e, "Batch insert failed, {attempt}", i);
+                        await Task.Delay(2000 * i, stoppingToken);
+                    }
+                    finally
+                    {
+                        queryThrottle.Release();
+                    }
                 }
             });
             pagingState = page.PagingState;
             logger.LogInformation("Migrated batch {0} of {table}", offset, tableName);
-            await semaphore.WaitAsync();
+            await queryThrottle.WaitAsync();
             page = await GetOldTable(pagingState);
-            semaphore.Release();
+            queryThrottle.Release();
         } while (page != null && !stoppingToken.IsCancellationRequested);
 
         logger.LogInformation("Migration for {tableName} done", tableName);
