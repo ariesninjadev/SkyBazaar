@@ -98,7 +98,7 @@ public class MigrationHandler<T>
     {
         var batchToInsert = page;
         var batches = Batch(batchToInsert, (int)(300 / Math.Pow(2, attempt)));
-        await Parallel.ForEachAsync(batches, async (batch, c) =>
+        await Parallel.ForEachAsync(batches, new ParallelOptions() { MaxDegreeOfParallelism = 5 }, async (batch, c) =>
         {
             await InsertChunk(batch);
         });
