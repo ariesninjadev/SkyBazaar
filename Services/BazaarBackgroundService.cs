@@ -60,27 +60,28 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
         private Task GetConsumeTask(CancellationToken stoppingToken)
         {
             logger.LogInformation($"starting consumption from {config["TOPICS:BAZAAR"]}");
-            return Coflnet.Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config, config["TOPICS:BAZAAR"], async bazaar =>
+            return Kafka.KafkaConsumer.ConsumeBatch<BazaarPull>(config, config["TOPICS:BAZAAR"], async bazaar =>
             {
                 consumeCounter.Inc();
                 var session = await bazaarService.GetSession();
-                System.Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing");
+                Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing");
+                try
+                {
+                    await bazaarService.AddEntry(bazaar, session);
+                }
+                catch (Exception e)
+                {
+                    logger.LogError(e, "saving bazaar batch");
+                    throw;
+                }
                 await Task.WhenAll(bazaar.Select(async (b) =>
                 {
-                    try
-                    {
-                        await bazaarService.AddEntry(b, session);
-                    }
-                    catch (System.Exception e)
-                    {
-                        logger.LogError(e, "saving");
-                        throw e;
-                    }
+
                     try
                     {
                         await orderBookService.BazaarPull(b);
                     }
-                    catch (System.Exception e)
+                    catch (Exception e)
                     {
                         logger.LogError(e, "orderbook check");
                     }

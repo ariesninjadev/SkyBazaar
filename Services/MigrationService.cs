@@ -70,19 +70,16 @@ public class MigrationService : BackgroundService
         await KafkaConsumer.ConsumeBatch<BazaarPull>(config, config["TOPICS:BAZAAR"], async bazaar =>
         {
             var session = await bazaarService.GetSession();
-            Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing");
-            await Task.WhenAll(bazaar.Select(async (b) =>
+            Console.WriteLine($"retrieved batch {bazaar.Count()}, start processing in migration");
+            try
             {
-                try
-                {
-                    await bazaarService.AddEntry(b, session);
-                }
-                catch (System.Exception e)
-                {
-                    logger.LogError(e, "saving");
-                    throw;
-                }
-            }));
+                await bazaarService.AddEntry(bazaar, session);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(e, "saving");
+                throw;
+            }
             await bazaarService.CheckAggregation(session, bazaar);
         }, stoppingToken, "sky-bazaar-migrator", 5);
     }

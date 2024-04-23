@@ -411,7 +411,13 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return new Table<StorageQuickStatus>(session, new MappingConfiguration(), TABLE_NAME_SECONDS);
         }
 
-        public async Task AddEntry(BazaarPull pull, ISession session = null)
+        public async Task AddEntry(BazaarPull pull)
+        {
+            var session = await GetSession();
+            await AddEntry(new List<BazaarPull> { pull }, session);
+        }
+
+        public async Task AddEntry(IEnumerable<BazaarPull> pull, ISession session = null)
         {
             if (session == null)
                 session = await GetSession();
@@ -420,13 +426,13 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             //session.ChangeKeyspace("bazaar_quickstatus");
             //var mapper = new Mapper(session);
             var table = GetSmalestTable(session);
-            var inserts = pull.Products.Select(item =>
+            var inserts = pull.SelectMany(p => p.Products.Select(item =>
             {
                 if (item.QuickStatus == null)
                     throw new NullReferenceException("Quickstatus can't be null " + item.ProductId);
                 var flip = new StorageQuickStatus()
                 {
-                    TimeStamp = pull.Timestamp,
+                    TimeStamp = p.Timestamp,
                     ProductId = item.ProductId,
                     SerialisedBuyOrders = MessagePack.MessagePackSerializer.Serialize(item.BuySummery),
                     SerialisedSellOrders = MessagePack.MessagePackSerializer.Serialize(item.SellSummary),
@@ -441,32 +447,37 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     ReferenceId = item.Id
                 };
                 return flip;
-            }).ToList();
+            })).ToList();
 
             currentState = inserts;
 
-            Console.WriteLine($"inserting {pull.Timestamp}   at {DateTime.UtcNow}");
-            await Task.WhenAll(inserts.Select(async status =>
+            Console.WriteLine($"inserting {string.Join(',', pull.Select(p => p.Timestamp))}   at {DateTime.UtcNow}");
+            await Task.WhenAll(inserts.GroupBy(i => i.ProductId).Select(async status =>
             {
                 var maxTries = 5;
+                var statement = new BatchStatement();
+                foreach (var item in status)
+                {
+                    statement.Add(table.Insert(item));
+                }
                 for (int i = 0; i < maxTries; i++)
                     try
                     {
                         await insertConcurrencyLock.WaitAsync();
-                        var statement = table.Insert(status);
                         statement.SetConsistencyLevel(ConsistencyLevel.Quorum);
-                        await session.ExecuteAsync(statement);
+                        await session.ExecuteAsync((IStatement)statement);
                         insertCount.Inc();
                         return;
                     }
                     catch (Exception e)
                     {
                         insertFailed.Inc();
-                        logger.LogError(e, $"storing {status.ProductId} {status.TimeStamp} failed {i} times");
+                        logger.LogError(e, $"storing {status.Key} {status.First().TimeStamp} failed {i} times");
                         await Task.Delay(500 * (i + 1));
                         if (i >= maxTries - 1)
                             throw e;
-                    } finally
+                    }
+                    finally
                     {
                         insertConcurrencyLock.Release();
                     }

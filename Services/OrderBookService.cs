@@ -92,7 +92,7 @@ public class OrderBookService
             var currentMaxBuy = product.SellSummary.MaxBy(o => o.PricePerUnit)?.PricePerUnit ?? 0;
             await DropNotPresent(orderBook.Sell, (OrderEntry e) => e.PricePerUnit < currentMinSell && e.Timestamp < pull.Timestamp);
             await DropNotPresent(orderBook.Buy, (OrderEntry e) => e.PricePerUnit > currentMaxBuy && e.Timestamp < pull.Timestamp);
-            var side = orderBook.Sell;
+            var side = orderBook.Sell.ToList();
             // add/update new orders
             foreach (var item in product.BuySummery.OrderByDescending(o => o.PricePerUnit))
             {
@@ -112,7 +112,7 @@ public class OrderBookService
                 };
                 await AddOrder(order);
             }
-            side = orderBook.Buy;
+            side = orderBook.Buy.ToList();
             foreach (var item in product.SellSummary.OrderBy(o => o.PricePerUnit))
             {
                 // find current
