@@ -86,7 +86,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     }
                 }));
                 await bazaarService.CheckAggregation(session, bazaar);
-            }, stoppingToken, "sky-bazaar", 5);
+            }, stoppingToken, config["KAFKA:CONSUMER_GROUP"], 5);
         }
     }
 }
