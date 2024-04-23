@@ -74,9 +74,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     logger.LogError(e, "saving bazaar batch");
                     throw;
                 }
-                await Task.WhenAll(bazaar.Select(async (b) =>
+                foreach (var b in bazaar)
                 {
-
                     try
                     {
                         await orderBookService.BazaarPull(b);
@@ -85,7 +84,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                     {
                         logger.LogError(e, "orderbook check");
                     }
-                }));
+                }
                 await bazaarService.CheckAggregation(session, bazaar);
             }, stoppingToken, config["KAFKA:CONSUMER_GROUP"], 5);
         }
