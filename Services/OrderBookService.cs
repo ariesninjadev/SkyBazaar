@@ -136,6 +136,7 @@ public class OrderBookService
 
     private async Task DropNotPresent(List<OrderEntry> side, Func<OrderEntry, bool> missingFunc)
     {
+        side.RemoveAll(o => o == null);
         // drop filled/canceled orders
         foreach (var item in side.Where(o => missingFunc(o) || o.Timestamp < DateTime.UtcNow - TimeSpan.FromDays(7)).ToList())
         {
