@@ -100,7 +100,16 @@ public class MigrationHandler<T>
         var batches = Batch(batchToInsert, (int)(300 / Math.Pow(2, attempt)));
         await Parallel.ForEachAsync(batches, new ParallelOptions() { MaxDegreeOfParallelism = 5 }, async (batch, c) =>
         {
-            await InsertChunk(batch);
+            try
+            {
+                await InsertChunk(batch);
+            }
+            catch (System.Exception)
+            {
+                if(attempt >= 5)
+                logger.LogError("Insert failed, {Json}", Newtonsoft.Json.JsonConvert.SerializeObject(batch));   
+                throw;
+            }
         });
         migrated.Inc(batchToInsert.Count);
         offset += batchToInsert.Count;
