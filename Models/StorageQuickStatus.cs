@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Cassandra.Mapping.Attributes;
 using MessagePack;
 using Newtonsoft.Json;
 
@@ -9,7 +10,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
     {
         [Key(0)]
         [JsonProperty("productId")]
-        [Cassandra.Mapping.Attributes.PartitionKey]
+        [PartitionKey]
         public string ProductId { get; set; }
         [Key(1)]
         [JsonProperty("buyPrice")]
@@ -37,7 +38,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
         public int SellOrdersCount { get; set; }
         [Key(9)]
         [JsonProperty("timestamp")]
-        [Cassandra.Mapping.Attributes.ClusteringKey]
+        [ClusteringKey]
         public DateTime TimeStamp { get; set; }
         [IgnoreMember]
         [JsonIgnore]
@@ -52,7 +53,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
         [System.Text.Json.Serialization.JsonIgnore]
         public long ReferenceId { get; set; }
 
-        [Cassandra.Mapping.Attributes.Ignore]
+        [Ignore]
         [IgnoreMember]
         [JsonProperty("buyOrders")]
         public IEnumerable<BuyOrder> BuyOrders
@@ -67,7 +68,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
                     SerialisedBuyOrders = MessagePack.MessagePackSerializer.Serialize<IEnumerable<BuyOrder>>(value);
             }
         }
-        [Cassandra.Mapping.Attributes.Ignore]
+        [Ignore]
         [IgnoreMember]
         [JsonProperty("sellOrders")]
         public IEnumerable<SellOrder> SellOrders

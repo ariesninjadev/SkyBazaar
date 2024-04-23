@@ -1,3 +1,5 @@
+extern alias CoflCore;
+
 using System;
 using System.IO;
 using System.Reflection;
@@ -19,6 +21,8 @@ using OpenTracing.Util;
 using Prometheus;
 using Coflnet.Sky.Items.Client.Api;
 using Coflnet.Sky.EventBroker.Client.Api;
+using CoflCore::Coflnet.Core;
+using StackExchange.Redis;
 
 namespace Coflnet.Sky.SkyAuctionTracker
 {
@@ -34,7 +38,8 @@ namespace Coflnet.Sky.SkyAuctionTracker
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddControllers().AddJsonOptions(options=>{
+            services.AddControllers().AddJsonOptions(options =>
+            {
                 options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingDefault;
             });
             services.AddSwaggerGen(c =>
@@ -61,16 +66,24 @@ namespace Coflnet.Sky.SkyAuctionTracker
             );
             services.AddHostedService<BazaarBackgroundService>();
             services.AddHostedService<AggregationService>();
-            services.AddJaeger(Configuration);
+            if (Configuration["OLD_CASSANDRA:HOSTS"] != null)
+            {
+                services.AddHostedService<MigrationService>();
+                services.AddCoflnetCore();
+            }
+            // services.AddJaeger(Configuration);
             services.AddSingleton<BazaarService>();
             services.AddResponseCaching();
             services.AddMemoryCache();
+            services.AddSingleton(d => ConnectionMultiplexer.Connect(Configuration["REDIS_HOST"]));
             services.AddSingleton<OrderBookService>();
             services.AddSingleton<ISessionContainer>(d => d.GetRequiredService<BazaarService>());
-            services.AddSingleton<IItemsApi, ItemsApi>(d=>{
+            services.AddSingleton<IItemsApi, ItemsApi>(d =>
+            {
                 return new ItemsApi(Configuration["ITEMS_BASE_URL"]);
             });
-            services.AddSingleton<IMessageApi>(d=>{
+            services.AddSingleton<IMessageApi>(d =>
+            {
                 return new MessageApi(Configuration["EVENTS_BASE_URL"]);
             });
         }

@@ -52,6 +52,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
 
         private List<StorageQuickStatus> currentState = new List<StorageQuickStatus>();
         private SemaphoreSlim sessionOpenLock = new SemaphoreSlim(1);
+        private SemaphoreSlim insertConcurrencyLock = new SemaphoreSlim(500);
 
         private static readonly Prometheus.Histogram checkSuccessHistogram = Prometheus.Metrics
             .CreateHistogram("sky_bazaar_check_success_histogram", "Histogram of successfuly checked elements",
@@ -402,27 +403,24 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             //Console.WriteLine("there are this many booster cookies: " + JsonConvert.SerializeObject(session.Execute("Select count(*) from " + TABLE_NAME_SECONDS + " where ProductId = 'BOOSTER_COOKIE' and Timestamp > '2021-12-07'").FirstOrDefault()));
         }
 
-        private static Table<AggregatedQuickStatus> GetDaysTable(ISession session)
+        public static Table<AggregatedQuickStatus> GetDaysTable(ISession session)
         {
             return new Table<AggregatedQuickStatus>(session, new MappingConfiguration(), TABLE_NAME_DAILY);
         }
 
-        private static Table<AggregatedQuickStatus> GetHoursTable(ISession session)
+        public static Table<AggregatedQuickStatus> GetHoursTable(ISession session)
         {
             return new Table<AggregatedQuickStatus>(session, new MappingConfiguration(), TABLE_NAME_HOURLY);
         }
 
-        private static Table<AggregatedQuickStatus> GetMinutesTable(ISession session)
+        public static Table<AggregatedQuickStatus> GetMinutesTable(ISession session)
         {
             return new Table<AggregatedQuickStatus>(session, new MappingConfiguration(), TABLE_NAME_MINUTES);
         }
 
-        private static Table<StorageQuickStatus> GetSmalestTable(ISession session)
+        public static Table<StorageQuickStatus> GetSmalestTable(ISession session)
         {
-            var mapping = new MappingConfiguration();
-            // set chunk_length_in_kb to 128
-
-            return new Table<StorageQuickStatus>(session, mapping, TABLE_NAME_SECONDS);
+            return new Table<StorageQuickStatus>(session, new MappingConfiguration(), TABLE_NAME_SECONDS);
         }
 
         public async Task AddEntry(BazaarPull pull, ISession session = null)
@@ -466,6 +464,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 for (int i = 0; i < maxTries; i++)
                     try
                     {
+                        await insertConcurrencyLock.WaitAsync();
                         var statement = table.Insert(status);
                         statement.SetConsistencyLevel(ConsistencyLevel.Quorum);
                         await session.ExecuteAsync(statement);
@@ -479,6 +478,9 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                         await Task.Delay(500 * (i + 1));
                         if (i >= maxTries - 1)
                             throw e;
+                    } finally
+                    {
+                        insertConcurrencyLock.Release();
                     }
             }));
             return;
