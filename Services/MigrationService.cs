@@ -41,7 +41,7 @@ public class MigrationService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Delay(TimeSpan.FromMinutes(3));
+        await Task.Delay(TimeSpan.FromMinutes(30));
         var handlerLogger = serviceProvider.GetRequiredService<ILogger<MigrationHandler<AggregatedQuickStatus>>>();
         var dailyHandler = new MigrationHandler<AggregatedQuickStatus>(
                 () => BazaarService.GetDaysTable(oldSession),
