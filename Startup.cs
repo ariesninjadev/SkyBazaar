@@ -69,9 +69,9 @@ namespace Coflnet.Sky.SkyAuctionTracker
             if (Configuration["OLD_CASSANDRA:HOSTS"] != null)
             {
                 services.AddSingleton<MigrationService>();
-                services.AddHostedService(d=>d.GetService<MigrationService>());
-                services.AddCoflnetCore();
+                services.AddHostedService(d => d.GetService<MigrationService>());
             }
+            services.AddCoflnetCore();
             // services.AddJaeger(Configuration);
             services.AddSingleton<BazaarService>();
             services.AddResponseCaching();

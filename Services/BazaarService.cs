@@ -70,10 +70,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 }
             );
 
-        public BazaarService(IConfiguration config, ILogger<BazaarService> logger)
+        public BazaarService(IConfiguration config, ILogger<BazaarService> logger, ISession session)
         {
             this.config = config;
             this.logger = logger;
+            _session = session;
         }
 
         internal async Task NewPull(int i, BazaarPull bazaar)
@@ -366,7 +367,7 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 return;
             ranCreate = true;
 
-            var session = await GetSession(null);
+            var session = await GetSession();
 
             var replication = new Dictionary<string, string>()
             {
@@ -486,34 +487,11 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             return;
         }
 
-        public async Task<ISession> GetSession(string keyspace = "bazaar_quickstatus")
+        public async Task<ISession> GetSession()
         {
             if (_session != null)
                 return _session;
-            await sessionOpenLock.WaitAsync();
-            if (_session != null)
-                return _session;
-            try
-            {
-
-                var cluster = Cluster.Builder()
-                                    .WithCredentials(config["CASSANDRA:USER"], config["CASSANDRA:PASSWORD"])
-                                    .AddContactPoints(config["CASSANDRA:HOSTS"].Split(","))
-                                    .Build();
-                if (keyspace == null)
-                    return await cluster.ConnectAsync();
-                _session = await cluster.ConnectAsync(keyspace);
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, "failed to connect to cassandra");
-                throw e;
-            }
-            finally
-            {
-                sessionOpenLock.Release();
-            }
-            return _session;
+            throw new NotImplementedException("the session should be injected from DI");
         }
 
         public async Task<IEnumerable<AggregatedQuickStatus>> GetStatus(string productId, DateTime start, DateTime end, int count = 1)

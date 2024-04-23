@@ -18,11 +18,6 @@
     <PackageReference Include="CassandraCSharpDriver" Version="3.20.1" />
     <PackageReference Include="Coflnet.Core"  Aliases="CoflCore" Version="0.2.0" />
     <PackageReference Include="Coflnet.Sky.EventBroker.Client" Version="0.3.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.0">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-    <PackageReference Include="Moq" Version="4.20.70" />
   </ItemGroup>
 
   <!-- Include tests in Debug build to keep them close to source and easier updated -->
@@ -32,6 +27,7 @@
   <ItemGroup Condition="'$(Configuration)' != 'Release'">
     <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="Moq" Version="4.20.70" />
   </ItemGroup>
 
 </Project>
