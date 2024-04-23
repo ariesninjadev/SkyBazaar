@@ -68,14 +68,15 @@ namespace Coflnet.Sky.SkyAuctionTracker
             services.AddHostedService<AggregationService>();
             if (Configuration["OLD_CASSANDRA:HOSTS"] != null)
             {
-                services.AddHostedService<MigrationService>();
+                services.AddSingleton<MigrationService>();
+                services.AddHostedService(d=>d.GetService<MigrationService>());
                 services.AddCoflnetCore();
             }
             // services.AddJaeger(Configuration);
             services.AddSingleton<BazaarService>();
             services.AddResponseCaching();
             services.AddMemoryCache();
-            services.AddSingleton(d => ConnectionMultiplexer.Connect(Configuration["REDIS_HOST"]));
+            services.AddSingleton(d => ConnectionMultiplexer.Connect(Configuration["SETTINGS_REDIS_HOST"]));
             services.AddSingleton<OrderBookService>();
             services.AddSingleton<ISessionContainer>(d => d.GetRequiredService<BazaarService>());
             services.AddSingleton<IItemsApi, ItemsApi>(d =>

@@ -27,6 +27,7 @@ public class MigrationService : BackgroundService
     // get di
     private IServiceProvider serviceProvider;
     private IConfiguration config;
+    public bool IsDone { get; private set; }
 
     public MigrationService(ISession session, OldSession oldSession, ILogger<MigrationService> logger, ConnectionMultiplexer redis, IServiceProvider serviceProvider, IConfiguration config)
     {
@@ -64,6 +65,7 @@ public class MigrationService : BackgroundService
         logger.LogInformation("Migrated, starting to replay kafka");
         using var scope = serviceProvider.CreateScope();
         var bazaarService = scope.ServiceProvider.GetRequiredService<BazaarService>();
+        IsDone = true;
         await KafkaConsumer.ConsumeBatch<BazaarPull>(config, config["TOPICS:BAZAAR"], async bazaar =>
         {
             var session = await bazaarService.GetSession();
