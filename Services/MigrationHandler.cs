@@ -69,7 +69,7 @@ public class MigrationHandler<T>
                     try
                     {
                         await queryThrottle.WaitAsync();
-                        var insertCount = await InsertBatch(prefix, db, offset, page);
+                        var insertCount = await InsertBatch(prefix, db, offset, page, i);
                         Interlocked.Add(ref offset, insertCount);
                         return;
                     }
@@ -94,10 +94,11 @@ public class MigrationHandler<T>
         logger.LogInformation("Migration for {tableName} done", tableName);
     }
 
-    private async Task<int> InsertBatch(string prefix, IDatabase db, int offset, IPage<T> page)
+    private async Task<int> InsertBatch(string prefix, IDatabase db, int offset, IPage<T> page, int attempt = 0)
     {
         var batchToInsert = page;
-        await Parallel.ForEachAsync(Batch(batchToInsert, 300), async (batch, c) =>
+        var batches = Batch(batchToInsert, (int)(300 / Math.Pow(2, attempt)));
+        await Parallel.ForEachAsync(batches, async (batch, c) =>
         {
             await InsertChunk(batch);
         });
