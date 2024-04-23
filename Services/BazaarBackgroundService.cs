@@ -76,6 +76,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 }
                 foreach (var b in bazaar)
                 {
+                    if (b.Timestamp < DateTime.Now - TimeSpan.FromHours(2))
+                        continue;
                     try
                     {
                         await orderBookService.BazaarPull(b);
