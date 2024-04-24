@@ -13,10 +13,7 @@ using Microsoft.Extensions.Logging;
 using Coflnet.Sky.Core;
 using System.Linq.Expressions;
 using RestSharp;
-using Microsoft.EntityFrameworkCore;
 using System.Collections.Concurrent;
-using Microsoft.Extensions.DependencyInjection;
-using OpenTracing.Util;
 using System.Threading;
 
 namespace Coflnet.Sky.SkyAuctionTracker.Services
@@ -502,7 +499,6 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
             var mapper = new Mapper(session);
             string tableName = GetTable(start, end);
             //return await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start).Take(count).ExecuteAsync();
-            using var span = GlobalTracer.Instance.BuildSpan("cassandra").StartActive();
             if (tableName == TABLE_NAME_SECONDS)
             {
                 return (await GetSmalestTable(session).Where(f => f.ProductId == productId && f.TimeStamp <= end && f.TimeStamp > start)
