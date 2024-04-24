@@ -33,7 +33,7 @@ public class MigrationHandler<T>
         this.newTableFactory = newTableFactory;
     }
 
-    SemaphoreSlim queryThrottle = new SemaphoreSlim(10);
+    SemaphoreSlim queryThrottle = new SemaphoreSlim(11);
     public async Task Migrate(CancellationToken stoppingToken = default)
     {
         newTableFactory().CreateIfNotExists();
@@ -86,7 +86,7 @@ public class MigrationHandler<T>
             });
             pagingState = page.PagingState;
             logger.LogInformation("Migrated batch {0} of {table}", offset, tableName);
-            await queryThrottle.WaitAsync();
+            await queryThrottle.WaitAsync(stoppingToken);
             page = await GetOldTable(pagingState);
             queryThrottle.Release();
         } while (page != null && !stoppingToken.IsCancellationRequested);
