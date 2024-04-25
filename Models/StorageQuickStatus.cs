@@ -22,7 +22,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
         [JsonProperty("buyMovingWeek")]
         public long BuyMovingWeek { get; set; }
         [Key(4)]
-        [JsonProperty("buyOrders")]
+        [JsonProperty("buyOrderCount")]
         public int BuyOrdersCount { get; set; }
         [Key(5)]
         [JsonProperty("sellPrice")]
@@ -34,7 +34,7 @@ namespace Coflnet.Sky.SkyBazaar.Models
         [JsonProperty("sellMovingWeek")]
         public long SellMovingWeek { get; set; }
         [Key(8)]
-        [JsonProperty("sellOrders")]
+        [JsonProperty("sellOrderCount")]
         public int SellOrdersCount { get; set; }
         [Key(9)]
         [JsonProperty("timestamp")]
