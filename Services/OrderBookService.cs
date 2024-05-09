@@ -148,6 +148,7 @@ public class OrderBookService
     public async Task RemoveOrder(string itemTag, string userId, DateTime timestamp)
     {
         var orders = await orderBookTable.Where(o => o.ItemId == itemTag && o.Timestamp == timestamp && o.UserId == userId).ExecuteAsync();
+        logger.LogInformation($"order book: User {userId} tries to remove order for {itemTag} {timestamp}");
         foreach (var order in orders)
         {
             var orderBook = cache.GetOrAdd(order.ItemId, (key) =>
