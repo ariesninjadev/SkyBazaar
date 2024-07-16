@@ -86,24 +86,25 @@ namespace Coflnet.Sky.SkyBazaar.Models
         }
 
         [Ignore]
-        [JsonProperty("cheapestBuy")]
-        public BuyOrder CheapestBuy
+        [JsonProperty("greatestBuy")]
+        public BuyOrder GreatestBuy
         {
             get
             {
-                return BuyOrders?.OrderBy(o => o.PricePerUnit).FirstOrDefault();
+                return BuyOrders?.OrderByDescending(o => o.PricePerUnit).FirstOrDefault();
+            }
+        }
+        
+        [Ignore]
+        [JsonProperty("cheapestSell")]
+        public SellOrder CheapestSell
+        {
+            get
+            {
+                return SellOrders?.OrderBy(o => o.PricePerUnit).FirstOrDefault();
             }
         }
 
-        [Ignore]
-        [JsonProperty("greatestSell")]
-        public SellOrder GreatestSell
-        {
-            get
-            {
-                return SellOrders?.OrderByDescending(o => o.PricePerUnit).FirstOrDefault();
-            }
-        }
 
         public StorageQuickStatus() { }
 
