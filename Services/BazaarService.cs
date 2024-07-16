@@ -153,6 +153,8 @@ namespace Coflnet.Sky.SkyAuctionTracker.Services
                 ProductId = s.ProductId,
                 BuyPrice = s.BuyPrice,
                 SellPrice = s.SellPrice
+                GreatestBuy = s.GreatestBuy
+                CheapestSell = s.CheapestSell
             });
         }
 
