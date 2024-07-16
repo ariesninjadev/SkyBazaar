@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cassandra.Mapping.Attributes;
 using MessagePack;
 using Newtonsoft.Json;
@@ -84,6 +85,26 @@ namespace Coflnet.Sky.SkyBazaar.Models
             }
         }
 
+        [Ignore]
+        [JsonProperty("cheapestBuy")]
+        public BuyOrder CheapestBuy
+        {
+            get
+            {
+                return BuyOrders?.OrderBy(o => o.PricePerUnit).FirstOrDefault();
+            }
+        }
+
+        [Ignore]
+        [JsonProperty("greatestSell")]
+        public SellOrder GreatestSell
+        {
+            get
+            {
+                return SellOrders?.OrderByDescending(o => o.PricePerUnit).FirstOrDefault();
+            }
+        }
+
         public StorageQuickStatus() { }
 
         public StorageQuickStatus(StorageQuickStatus status)
@@ -113,7 +134,6 @@ namespace Coflnet.Sky.SkyBazaar.Models
     {
         public SellOrder() { }
     }
-
 
     [MessagePackObject]
     public class Order
